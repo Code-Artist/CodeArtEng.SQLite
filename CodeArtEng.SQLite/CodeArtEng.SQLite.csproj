@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <Version>1.5.0</Version>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Copyright>Copyright ©  Code Art Enginnering 2024</Copyright>
+    <PackageProjectUrl>www.codearteng.com</PackageProjectUrl>
+    <PackageIcon>CAELogoSmall.png</PackageIcon>
+    <PackageReleaseNotes>Update package handling.
+Add params keyword to WriteToDatabase method.</PackageReleaseNotes>
+    <PackAsTool>False</PackAsTool>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="doc\**" />
+    <Compile Remove="Properties\**" />
+    <EmbeddedResource Remove="doc\**" />
+    <EmbeddedResource Remove="Properties\**" />
+    <None Remove="doc\**" />
+    <None Remove="Properties\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\CAELogoSmall.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.118.0" />
+  </ItemGroup>
+
+</Project>
