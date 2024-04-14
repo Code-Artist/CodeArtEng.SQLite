@@ -84,3 +84,19 @@ public Employee[] ReadEmployeeData()
 {
     return ReadFromDatabase<Employee>().ToArray();
 }
+```
+
+## Update Data to Database
+To update data in a database, you can utilize the `WriteToDatabase` method. Alternatively, achieving the same results is possible by employing the `ExecuteNonQuery` method.
+```C#
+public void WriteEmployeeData(Employee[] newDatas)
+{
+    WriteToDatabase(newDatas);
+}
+```
+
+# ORM
+`ReadFromDatabase` and `WriteToDatabase` implemented object to database mapping which designed to works with child tables and support multiple database source using easy to understand syntax.
+To get started, let's walk through some basic rules and assumption.
+
+
