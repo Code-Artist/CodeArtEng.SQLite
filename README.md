@@ -79,7 +79,7 @@ public Employee[] ReadEmployeeData()
             e.ID = r.GetInt32(x++);
             e.Name = r.GetStringEx(x++);  //Extension method. Handle null value.
             e.Department = r.GetStringEx(x++);
-            e.Salary = r.GetInt32Ex(x++);
+            e.Salary = r.GetInt32Ex(x++);z
         }
     });
 }
@@ -164,11 +164,13 @@ public class MyTable
 ## Index Table
 The following example illustrates that `UserName` is stored as an index in column named `NameID` of `Employee` table , while the string value is stored in a key-value pair table named `Name`. This setup allows for efficient retrieval and management of data especially when same name is used multiple time in different tables.
 
+Table name parameter for `SQLIndexTable` is optional, property name will be used as table name if leave blank.
+
 ```C#
 public class Employee
 {
-    [SQLIndex]
-    [SQLName('NameID')]
+    [SQLIndexTable("Name")]
+    [SQLName(""NameID")]
     public string UserName {get; set;}
 }
 ```
