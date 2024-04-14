@@ -1,5 +1,5 @@
 # SQLiteHelper: A Micro-ORM for SQLite Database
-## Introduction
+# Introduction
 SQLiteHelper is a micro-ORM (Object-Relational Mapping) designed to simplify application development with SQLite databases. It is particularly suitable for small to medium scale applications, eliminating the need to write every single SQL query from scratch.
 It’s important to note that SQLiteHelper is not intended to replace Entity Framework. While Entity Framework is a robust ORM with a full set of features, SQLiteHelper is designed with simplicity and speed in mind. It provides a streamlined interaction with SQLite databases through simple functions.
 
@@ -24,8 +24,8 @@ In conclusion, SQLiteHelper is a powerful tool for developers working with SQLit
 * **SQLiteDataReaderEx** *(extension)*: Extension class for `SQLiteDataReader` which handle `null` check for get value method.
 * **SQLAttribute**: Attribute base class for table mapping.
 
-## Using SQLiteHelper
-### Create SQLite Database class
+# Using SQLiteHelper
+## Create SQLite Database class
 Create project specific database class inherite from `SQLiteHelper` class.
 ```C#
 public class MyDatabase : SQLiteHelper
@@ -37,7 +37,7 @@ public class MyDatabase : SQLiteHelper
 }
 ```
 
-### Read from Database Table
+## Read from Database Table
 To read data from Table Employee with following columns:
 * ID - INTEGER
 * Name - TEXT
