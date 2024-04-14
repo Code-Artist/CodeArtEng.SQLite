@@ -55,7 +55,7 @@ public class Employee
 }
 ```
 
-Read data with `ExecuteQuery` method:
+1. Read data with `ExecuteQuery` method:
 ```C#
 public Employee[] ReadEmployeeData()
 {
@@ -78,3 +78,10 @@ public Employee[] ReadEmployeeData()
     });
 }
 ```
+
+2. Implementation above can be further simplify using query with class - `ReadFromDatabase`
+```C#
+public Employee[] ReadEmployeeData()
+{
+    return ReadFromDatabase<Employee>().ToArray();
+}
