@@ -1,5 +1,4 @@
 # SQLiteHelper: A Micro-ORM for SQLite Database
-# Introduction
 SQLiteHelper is a micro-ORM (Object-Relational Mapping) designed to simplify application development with SQLite databases. It is particularly suitable for small to medium scale applications, eliminating the need to write every single SQL query from scratch.
 It’s important to note that SQLiteHelper is not intended to replace Entity Framework. While Entity Framework is a robust ORM with a full set of features, SQLiteHelper is designed with simplicity and speed in mind. It provides a streamlined interaction with SQLite databases through simple functions.
 
