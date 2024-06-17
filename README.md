@@ -1,4 +1,7 @@
 # SQLite Helper: A Micro-ORM for SQLite Database
+https://img.shields.io/nuget/v/codearteng.sqlite
+https://img.shields.io/nuget/dt/codearteng.sqlite
+
 - [Introduction](#introduction)
   * [Dependency](#dependency)
   * [Key Features of SQLite Helper](#key-features-of-sqlite-helper)
