@@ -1,8 +1,26 @@
-# SQLiteHelper: A Micro-ORM for SQLite Database
-SQLiteHelper is a micro-ORM (Object-Relational Mapping) designed to simplify application development with SQLite databases. It is particularly suitable for small to medium scale applications, eliminating the need to write every single SQL query from scratch.
+- [SQLite Helper: A Micro-ORM for SQLite Database](#sqlite-helper--a-micro-orm-for-sqlite-database)
+  * [Dependency](#dependency)
+  * [Key Features of SQLite Helper](#key-features-of-sqlite-helper)
+  * [Anatomy of SQLiteHelper](#anatomy-of-sqlitehelper)
+- [Using SQLiteHelper](#using-sqlitehelper)
+  * [Create SQLite Database class](#create-sqlite-database-class)
+  * [Read from Database Table](#read-from-database-table)
+  * [Update Data to Database](#update-data-to-database)
+- [ORM](#orm)
+  * [Table Name](#table-name)
+  * [Column Name](#column-name)
+  * [Data Type](#data-type)
+  * [Index Table](#index-table)
+  * [Primary Key](#primary-key)
+  * [Child Table](#child-table)
+  * [Multiple Database Source](#multiple-database-source)
 
-On the other hand, Entity Framework (EF) which is a full scale ORM provide complete sets of functions. More is not always the best, be sure to consider [Pro and Cons of EF](https://www.codearteng.com/2024/04/entity-framework-advantages-and.html) before jumping right into it.
-While Entity Framework is a robust ORM with a full set of features, SQLiteHelper on the other hand is designed with simplicity and speed in mind. It provides a streamlined interaction with SQLite databases through simple functions.
+# SQLite Helper: A Micro-ORM for SQLite Database
+SSQLite Helper is a micro-Object-Relational Mapping (ORM) tool crafted to facilitate application development with SQLite databases. It is particularly well-suited for small to medium-scale applications, negating the necessity of authoring each SQL query from the ground up.
+
+Conversely, Entity Framework (EF) is a comprehensive ORM offering a complete suite of functionalities. However, more features do not inherently equate to superiority. It is prudent to weigh the [Pros and Cons of EF](https://www.codearteng.com/2024/04/entity-framework-advantages-and.html) prior to its adoption.
+
+While Entity Framework presents a robust ORM solution with an extensive feature set, SQLite Helper is tailored for simplicity and expediency, enabling streamlined interactions with SQLite databases through straightforward functions.
 
 An article [Micro ORM vs ORM](https://yaplex.com/micro-orm-vs-orm/) written by Alex Shapovalov explained in details difference between Micro ORM vs ORM and how to choose among them.
 
@@ -10,20 +28,20 @@ An article [Micro ORM vs ORM](https://yaplex.com/micro-orm-vs-orm/) written by A
 * NuGet: [System.Data.SQLite.Core](https://www.nuget.org/packages/System.Data.SQLite.Core)
 * .NET Framework 4.8
 
-## Key Features of SQLiteHelper
-SQLiteHelper comes with a set of features aimed at making your interaction with SQLite databases as smooth as possible:
+## Key Features of SQLite Helper
+SQLite Helper comes with a set of features aimed at making your interaction with SQLite databases as smooth as possible:
 
-1. **Manage Connection String:** With SQLiteHelper, you only need to provide the file path to the database file. It takes care of the rest.
-2. **Automatic Open and Close Connection:** SQLiteHelper handles the connection to the database with a helper class. This means you no longer need to keep track of the connection status or worry about forgetting to release the database after a write operation.
-3. **Object Mapping to Database Class:** SQLiteHelper allows you to perform read and write operations from the database with a single method call. It maps objects to the database class, simplifying the process of data manipulation.
-4. **Handle Queries from Different Database Sources:** SQLiteHelper is capable of handling queries from different database sources, providing you with the flexibility you need when working with multiple databases.
-5. **Utility Function**: Utility method such as `ClearTable`, `GetPrimaryKeys`, `GetTableSchema`  and others are implemented with measures to prevent SQL injection which could be easily overlook for beginners.
+1. **Manage Connection String:** `SQLiteHelper` requires only the database file path to establish a connection, streamlining the process significantly.
+2. **Automatic Open and Close Connection:** `SQLiteHelper` employs a helper class to manage database connections, obviating the need for manual tracking of connection states and ensuring proper release post-write operations.
+3. **Object Mapping to Database Class:** `SQLiteHelper` facilitates single-method read and write operations to the database by mapping objects directly to the database class, thereby simplifying data manipulation tasks.
+4. **Handle Queries from Different Database Sources:** `SQLiteHelper` is adept at processing queries from various database sources, offering the requisite flexibility for managing multiple databases.
+5. **Utility Functions:** `SQLiteHelper` includes utility methods such as `ClearTable`, `GetPrimaryKeys`, `GetTableSchema`, among others, all designed with safeguards against SQL injection—a common oversight for novices.
 
-In conclusion, SQLiteHelper is a powerful tool for developers working with SQLite databases. It simplifies the process of database interaction, allowing developers to focus more on the application logic and less on writing SQL queries. Whether you’re developing a small application or a medium-sized project, SQLiteHelper can help streamline your development process.
+In summary, `SQLiteHelper` stands as an invaluable asset for developers engaging with SQLite databases. It significantly streamlines database interactions, thereby enabling developers to allocate greater focus on application logic rather than on the intricacies of SQL query construction. `SQLiteHelper` is adept at enhancing the development workflow for both small-scale applications and medium-sized projects alike.In summary, `SQLiteHelper` stands as an invaluable asset for developers engaging with SQLite databases. It significantly streamlines database interactions, thereby enabling developers to allocate greater focus on application logic rather than on the intricacies of SQL query construction. `SQLiteHelper` is adept at enhancing the development workflow for both small-scale applications and medium-sized projects alike.
 
 ## Anatomy of SQLiteHelper
-* **SQLiteHelper** *(abstract)*: This is the primary helper class for the SQLite database. It encompasses all methods for reading from and writing to the database.
-* **SQLiteDatabaseHandler** *(abstract)*: This is a subclass derived from SQLiteHelper. It inherits all features from the SQLiteHelper class and additionally has the ability to toggle between remote and local databases, as well as synchronize data from a remote source to a local cached copy.
+* **SQLiteHelper** *(abstract)*: Primary class for the package. It encompasses all methods necessary for database read and write operations.
+* **SQLiteDatabaseHandler** *(abstract)*: This is a subclass derived from `SQLiteHelper`. It inherits all features from the SQLiteHelper class and additionally has the ability to toggle between remote and local databases, as well as synchronize data from a remote source to a local cached copy.
 * **SQLiteDataReaderEx** *(extension)*: Extension class for `SQLiteDataReader` which handle `null` check for get value method.
 * **SQLAttribute**: Attribute base class for table mapping.
 
