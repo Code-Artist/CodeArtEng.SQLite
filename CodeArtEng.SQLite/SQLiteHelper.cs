@@ -514,7 +514,7 @@ namespace CodeArtEng.SQLite
             result = new SQLTableInfo(sender, tableName);
             if (!result.Validated) ValidateTableinfo(result);
             TableInfos.Add(result);
-            //TableInfos.AddRange(result.ChildTables.Select(n => n.ChildTableInfo).ToArray());
+            TableInfos.AddRange(result.ChildTables.Select(n => n.ChildTableInfo).ToArray());
             return result;
         }
 

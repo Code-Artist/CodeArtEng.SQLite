@@ -37,7 +37,7 @@ SQLite Helper comes with a set of features aimed at making your interaction with
 4. **Handle Queries from Different Database Sources:** `SQLiteHelper` is adept at processing queries from various database sources, offering the requisite flexibility for managing multiple databases.
 5. **Utility Functions:** `SQLiteHelper` includes utility methods such as `ClearTable`, `GetPrimaryKeys`, `GetTableSchema`, among others, all designed with safeguards against SQL injection—a common oversight for novices.
 
-In summary, `SQLiteHelper` stands as an invaluable asset for developers engaging with SQLite databases. It significantly streamlines database interactions, thereby enabling developers to allocate greater focus on application logic rather than on the intricacies of SQL query construction. `SQLiteHelper` is adept at enhancing the development workflow for both small-scale applications and medium-sized projects alike.In summary, `SQLiteHelper` stands as an invaluable asset for developers engaging with SQLite databases. It significantly streamlines database interactions, thereby enabling developers to allocate greater focus on application logic rather than on the intricacies of SQL query construction. `SQLiteHelper` is adept at enhancing the development workflow for both small-scale applications and medium-sized projects alike.
+In conclusion, `SQLiteHelper` is an essential tool for developers working with SQLite databases. It simplifies database interactions, allowing developers to concentrate more on the application's logic rather than the complexities of SQL query writing. `SQLiteHelper` is effective in improving the development process for both small and medium-sized projects.
 
 ## Anatomy of SQLiteHelper
 * **SQLiteHelper** *(abstract)*: Primary class for the package. It encompasses all methods necessary for database read and write operations.
@@ -59,7 +59,7 @@ public class MyDatabase : SQLiteHelper
 ```
 
 ## Read from Database Table
-To read data from Table Employee with following columns:
+SQLite Helper offer 2 solutions to read data from Employee table into `Employee` class object as shown below:
 ```
 Employee (Table)
   |- ID, INTEGER, Primary Key
@@ -68,7 +68,6 @@ Employee (Table)
   |- Salary, INTEGER
 ```
 
-Store into data class named Employee as follow:
 ```C#
 public class Employee
 {
@@ -79,7 +78,7 @@ public class Employee
 }
 ```
 
-1. Read data with `ExecuteQuery` method:
+1. The convention way, manually read data from database using `ExecuteQuery` method:
 ```C#
 public Employee[] ReadEmployeeData()
 {
@@ -111,8 +110,8 @@ public Employee[] ReadEmployeeData()
 }
 ```
 
-## Update Data to Database
-To update data in a database, you can utilize the `WriteToDatabase` method. Alternatively, achieving the same results is possible by employing the `ExecuteNonQuery` method.
+## Write Data to Database
+To update or write new data into database, you can utilize the `WriteToDatabase` method. Alternatively, achieving the same results is possible by employing the `ExecuteNonQuery` method.
 ```C#
 public void WriteEmployeeData(Employee[] newDatas)
 {
@@ -120,10 +119,10 @@ public void WriteEmployeeData(Employee[] newDatas)
 }
 ```
 
-# ORM
-The `ReadFromDatabase` and `WriteToDatabase` methods implement object-to-database mapping. They are designed to work with child tables and support multiple database sources using an easy-to-understand syntax. To get started, let's walk through some basic rules and assumption.
+# Reading and Writing Tables (ORM)
+The ReadFromDatabase and WriteToDatabase methods make it easy to link objects in your code to tables in your database. They work well with tables that have relationships (child tables) and can handle working with more than one database using simple commands. Let’s take a closer look at what they can do.
 
-These 2 methods are designed with [Fail Fast Principal](https://www.codereliant.io/fail-fast-pattern/). Object mapping are compared with database structure for main and child tables on first execution call to either one of this method to ensure all the columns are matching. To maintain backward compatibility, we allowed database table contains more columns than the mapped object, but not the other way round.
+These methods follow the Fail Fast Principle, which means they quickly check if the structure of your objects matches the structure of your database tables when you first use them. This check is to make sure that all the columns match up. To avoid problems with older versions, your database tables can have extra columns that aren’t in your objects, but not the other way around.
 
 ## Table Name
 Mapping a class to database table named *Employee*.
@@ -135,7 +134,10 @@ public class Emp { ... }
 ```    
 
 ## Column Name
-All public properties with public getters and setters are treated as SQL columns. By default, the property names are used as column names.
+All public properties that have public getters and setters are regarded as SQL columns.
+The names of these properties are, by default, used as the names of the corresponding columns.
+The `SQLName` attribute can be used to overwrite the default column name.
+
 ```C#
 public class Employee
 {
@@ -156,17 +158,19 @@ public class Employee
     public int Age {get;}
 }
 ```
-**NOTE**: SQLite automatically convert values to the appropriate datatype. More details in SQLite documentation [Type Affinity](https://sqlite.org/datatype3.html#type_affinity)
 
 ## Data Type
-Table below show default data type mapping object and database.
+The table below displays the default data type mappings between objects and the database. Ensuring matching data types is crucial for the accurate writing and reading of data.
+**NOTE**: SQLite may automatically convert values to the appropriate datatype. More details in SQLite documentation [Type Affinity](https://sqlite.org/datatype3.html#type_affinity)
 
 | Object Type | Database Type |
 |----|----|
-| string, enum, DateTime | TEXT
-| int, double, long, decimal, float | INTEGER, NUMERIC |
+| string, Enum, DateTime | TEXT |
+| int,  long, bool  | INTEGER |
+| double, decimal, float | REAL |
 
-Enum and DateTime values can be stored as integer in Database by adding `SQLDataType` attribute. Enum `Status` stored as integer while `DateTime` stored as ticks (long).
+The `SQLDataType` attribute can be utilized to explicitly define the storage type of a value in the database. For instance, `Enum` and `DateTime` types can be stored as integers by applying the `SQLDataType` attribute, with Enum `Status` being stored as an integer and `DateTime` being stored as ticks (long).
+
 ```C#
 public enum Status { ... }
 public class MyTable
@@ -180,9 +184,9 @@ public class MyTable
 ```
 
 ## Index Table
-The following example illustrates that `UserName` is stored as an index in column named `NameID` of `Employee` table , while the string value is stored in a key-value pair table named `Name`. This setup allows for efficient retrieval and management of data especially when same name is used multiple time in different tables.
+The example below demonstrates that `UserName` is stored as an index in the `NameID` column of the `Employee` table, while the actual string value is kept in a key-value pair table named `Name`. This method facilitates efficient data retrieval and management, particularly when the same name is used multiple times across different tables.
 
-Table name parameter for `SQLIndexTable` is optional, property name will be used as table name if leave blank.
+Table name parameter for `SQLIndexTable` is optional. If left blank, the property name `UserName` will be used as the table name. The values for the index table can be shared among multiple tables.
 
 ```C#
 public class Employee
@@ -204,8 +208,8 @@ Name (Table)
 ```
 
 ## Primary Key
-The primary key attribute corresponds to the primary key in the database table.
-When you execute the `WriteToDatabase` method with an item where the ID is equal to 0, a new entry will be added to the database table with the next assigned unique ID. Otherwise, a row with matching ID will be updated.
+The primary key attribute is linked to the primary key in the database table. When the `WriteToDatabase` method is executed with an item whose ID is 0, it will create a new entry in the database table and assign it a unique ID. If the ID is not 0, it will update the existing row with the matching ID.
+**NOTE:** Primary key must be declared with `int` type.
 ```C#
 public class Employee
 {
@@ -216,14 +220,14 @@ public class Employee
 ```
 
 ## Child Table
-Consider the following example, list of object `List<Employee>` is treated as child table with one to many relation. Property name `Employees` shall be used as Table name for child table unless explicitly specified by `SQLName` attribute which stated table name as `Employee` as shown below.
+Let's examine the example provided: In database, `Department` serves as a parent table, and `List<Employee>` functions as a child table with a one-to-many relationship, where each department can be associated with multiple employees. In other words, for every single entry in the `Department` table, there can be several corresponding entries in the `Employee` table, each representing an individual employee belonging to that department, while each `Employee` is assigned to only one `Department`.
+
 ```C#
 public class Department
 {
     [PrimaryKey]
     public int ID { get; set; }
     public string Name { get; set; }
-    [SQLName("Employee")]
     public List<Employee> Employees { get; set; } = new List<Employee>();
     ...
 }
