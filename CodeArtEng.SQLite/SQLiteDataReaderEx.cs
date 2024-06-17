@@ -16,7 +16,7 @@ namespace CodeArtEng.SQLite
         public static string GetStringEx(this SQLiteDataReader reader, int index)
         {
             if (reader.IsDBNull(index)) return string.Empty;
-            return reader.GetString(index).Trim();
+            return reader.GetString(index);
         }
 
         /// <summary>

@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SQLite;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -30,10 +31,12 @@ namespace CodeArtEng.SQLite
         }
         #endregion
 
+        #region [ SQLiteConnection and Settings ]
+
         /// <summary>
         /// SQLite Database Connection.
         /// </summary>
-        public SQLiteConnection DBConnection { get; private set; } = new SQLiteConnection();
+        protected SQLiteConnection DBConnection { get; private set; } = new SQLiteConnection();
 
         /// <summary>
         /// Database connection string
@@ -47,10 +50,10 @@ namespace CodeArtEng.SQLite
         /// Databse file full path. Execute <see cref="SetSQLPath(string, bool)"/> to change.
         /// </summary>
         public string DatabaseFilePath { get; private set; } = string.Empty;
-
         /// <summary>
         /// Keep database open until flag is cleared or <see cref="DisconnectDatabase"/> is called.
         /// </summary>
+
         [DefaultValue(false)]
         public bool KeepDatabaseOpen
         {
@@ -69,20 +72,34 @@ namespace CodeArtEng.SQLite
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool ReadOnly { get; private set; } = false;
+
         /// <summary>
-        /// Maximum time to wait for a query to return in seconds.
+        /// Properties of SQLiteConnection, default timeout for SQLCommand. 
+        /// Default value set in <see cref="SQLiteConnection"/> is 30 seconds
         /// </summary>
-        [DefaultValue(30)]
-        protected int QueryTimeout
+        protected int SQLDefaultTimeout
         {
-            get => _QueryTimeout;
-            set
-            {
-                _QueryTimeout = value;
-                if (Command != null) Command.CommandTimeout = value;
-            }
+            get => DBConnection.DefaultTimeout;
+            set => DBConnection.DefaultTimeout = value;
         }
-        private int _QueryTimeout = 30;
+        /// <summary>
+        /// Properties of SQLiteConnection, default timeout in ms to wait for a connection for write access.
+        /// Default value set in <see cref="SQLiteConnection"/> is 0 ms.
+        /// </summary>
+        protected int SQLBusyTimeout
+        {
+            get => DBConnection.BusyTimeout;
+            set => DBConnection.BusyTimeout = value;
+        }
+        /// <summary>
+        /// Properties of SQLiteConnection, max of retries when executing a SQL step.
+        /// Defualt value set in <see cref="SQLiteConnection"/> is 40.
+        /// </summary>
+        protected int SQLStepRetries
+        {
+            get => DBConnection.StepRetries;
+            set => DBConnection.StepRetries = value;
+        }
 
         /// <summary>
         /// Return true if connection to database is established.
@@ -98,10 +115,23 @@ namespace CodeArtEng.SQLite
             return File.Exists(DatabaseFilePath);
         }
 
+        #endregion
+
         /// <summary>
         /// Constructor. Nothing special happening here (",)
         /// </summary>
         public SQLiteHelper() { }
+
+        /// <summary>
+        /// Constructor with additonal retries and busy timeout input override default values.
+        /// </summary>
+        /// <param name="stepRetries">Refer to <see cref="SQLStepRetries"/></param>
+        /// <param name="busyTimeout">Refer to <see cref="SQLBusyTimeout"/> </param>
+        public SQLiteHelper(int stepRetries, int busyTimeout) : this()
+        {
+            SQLStepRetries = stepRetries;
+            SQLBusyTimeout = busyTimeout;
+        }
 
         #region [ IDisposable ]
 
@@ -190,7 +220,6 @@ namespace CodeArtEng.SQLite
 
             DBConnection.ParseViaFramework = true;
             DBConnection.Open();
-            Command.CommandTimeout = QueryTimeout;
         }
 
         /// <summary>
@@ -286,6 +315,7 @@ namespace CodeArtEng.SQLite
         protected void ExecuteTransaction(Action performTransactions)
         {
             Connect();
+            KeepDatabaseOpen = true;
             SQLiteTransaction transaction = null;
             try
             {
@@ -303,6 +333,7 @@ namespace CodeArtEng.SQLite
                 Command.Transaction = null;
                 Command.Parameters.Clear();
                 transaction?.Dispose();
+                KeepDatabaseOpen = false;
                 Disconnect();
             }
         }
@@ -340,21 +371,6 @@ namespace CodeArtEng.SQLite
                         });
                     }
                 });
-            return results.ToArray();
-        }
-
-        /// <summary>
-        /// Get column names for selected table.
-        /// </summary>
-        /// <param name="table"></param>
-        /// <returns></returns>
-        private string[] GetColumnNames(string table)
-        {
-            Command.Parameters.Clear();
-            Command.Parameters.AddWithValue("$table", table);
-            List<string> results = new List<string>();
-            ExecuteQuery("SELECT NAME FROM pragma_table_info($table)",
-                (r) => { while (r.Read()) results.Add(r.GetString(0)); });
             return results.ToArray();
         }
 
@@ -460,6 +476,7 @@ namespace CodeArtEng.SQLite
         /// <returns></returns>
         protected void VerifyTableExists(string tableName)
         {
+            Trace.WriteLine("Verify Table: " + tableName);
             if (!GetTables().Contains(tableName, StringComparer.InvariantCultureIgnoreCase))
                 throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
         }
@@ -488,15 +505,16 @@ namespace CodeArtEng.SQLite
         /// </summary>
         /// <param name="sender"></param>
         /// <returns></returns>
-        private SQLTableInfo GetTableInfo(Type sender)
+        private SQLTableInfo GetTableInfo(Type sender, string tableName = null)
         {
             SQLTableInfo result = TableInfos.FirstOrDefault(n => n.TableType == sender);
             if (result != null) return result;
 
             //Create entry, verify table exist
-            result = new SQLTableInfo(sender);
+            result = new SQLTableInfo(sender, tableName);
             if (!result.Validated) ValidateTableinfo(result);
             TableInfos.Add(result);
+            //TableInfos.AddRange(result.ChildTables.Select(n => n.ChildTableInfo).ToArray());
             return result;
         }
 
@@ -507,25 +525,56 @@ namespace CodeArtEng.SQLite
             VerifyTableExists(info.TableName);
             if (info.PrimaryKey != null) ValidatePrimaryKey(info);
 
-            //Table may have more columns than class.
-            //Ignore properties where name does not match with Table columns (Backward Compatible)
+            //Database Table may have more columns than .NET Object.
+            //Ignore table columns which does not have matching in SQLTableInfo (Backward Compatible)
             DBColumn[] DBColumns = GetDBColumns(info.TableName);
             foreach (SQLTableItem item in info.Columns)
             {
+                //Verify column exists in table.
                 DBColumn column = DBColumns.FirstOrDefault(n => n.Name.Equals(item.SQLName, StringComparison.CurrentCultureIgnoreCase));
                 if (column == null) throw new FormatException($"{info.TableName}: Missing column {item.SQLName}!");
 
-                if (item.IsIndexTable && !column.Type.Equals("INTEGER"))
-                    throw new FormatException($"{info.TableName}.{item.SQLName}: Expecting INTEGER type for index column.");
-
-                if (item.IsDataTypeDefined)
+                string errHeaderDB = $"Incorrect database format for {info.TableName}.{item.SQLName}: ";
+                string errHeaderClass = $"Incorrect class declaration for {info.Name}.{item.Name}: ";
+                Type itemType = item.Property.PropertyType;
+                if (item.IsPrimaryKey)
+                {
+                    if ((itemType != typeof(int)) || (itemType != typeof(long))) throw new FormatException("Primary key must be int or long.");
+                    if (!column.Type.Equals("INTEGER")) throw new FormatException(errHeaderDB + "Primary key must be INTEGER type.");
+                }
+                else if (item.IsIndexTable)
+                {
+                    if (!column.Type.Equals("INTEGER"))
+                        throw new FormatException(errHeaderDB + "Expecting INTEGER type for index column.");
+                }
+                else if (item.IsDataTypeDefined)
                 {
                     if (item.DataType == SQLDataType.TEXT && !column.Type.Equals("TEXT"))
-                        throw new FormatException($"{info.TableName}.{item.SQLName}: Type mismatched, expecting TEXT!");
+                        throw new FormatException(errHeaderDB + "Type mismatched, expecting TEXT!");
                     else if (item.DataType == SQLDataType.INTEGER && !column.Type.Equals("INTEGER"))
-                        throw new FormatException($"{info.TableName}.{item.SQLName}: Type mismatched, expecting INTEGER!");
+                        throw new FormatException(errHeaderDB + "Type mismatched, expecting INTEGER!");
                 }
+                else
+                {
+                    //Data Type Check, compare and verify data type between class and database declaration.
+                    //Incorrect type declaration might not affect write operation but readback value will get affected.
 
+                    if ((typeof(int).IsAssignableFrom(itemType) ||
+                        typeof(long).IsAssignableFrom(itemType)
+                        ) && !column.Type.Equals("INTEGER"))
+                        throw new FormatException(errHeaderDB + "Type mismatched, expecting INTEGER!");
+
+                    if ((itemType == typeof(string) ||
+                        itemType == typeof(DateTime) ||
+                        itemType == typeof(Enum)
+                        ) && !column.Type.Equals("TEXT"))
+                        throw new FormatException(errHeaderDB + "Type mismatched, expecting TEXT!");
+
+                    if ((typeof(double).IsAssignableFrom(itemType) ||
+                        typeof(float).IsAssignableFrom(itemType)
+                        ) && !column.Type.Equals("REAL"))
+                        throw new FormatException(errHeaderDB + "Type mismatched, expecting REAL!");
+                }
             }
 
             foreach (SQLTableItem i in info.ChildTables)
@@ -573,10 +622,6 @@ namespace CodeArtEng.SQLite
         }
 
         /// <summary>
-        /// <see cref="ReadFromDatabase{T}(string)"/> recursive loop tracking.
-        /// </summary>
-        private int ReadDepth = 0;
-        /// <summary>
         /// Unique ID for read operation, used to optimize Index table handling.
         /// </summary>
         private long ReadOpID = 0;
@@ -585,31 +630,40 @@ namespace CodeArtEng.SQLite
         /// A generic function to retrieve data from 
         /// a specified database table and map it to objects of a given class. 
         /// Class and properties name are not case sensitives.
+        /// Entire operation is completed in one single transaction.
         /// </summary>
         /// <typeparam name="T">Output object type</typeparam>
         /// <returns></returns>
-        protected IList<T> ReadFromDatabase<T>(string whereStatement = null) where T : class, new()
+        protected IList<T> ReadFromDatabase<T>(string whereStatement = null, string tableName = null) where T : class, new()
         {
-            if (ReadDepth == 0) ReadOpID = DateTime.Now.Ticks;
-            ReadDepth++;
+            ReadOpID = DateTime.Now.Ticks;
+            bool keepDBOpenFlag = KeepDatabaseOpen;
             KeepDatabaseOpen = true;
+            //NOTE: Cannot use transaction here, switching database will cause transaction closed.
             try
             {
-                SQLTableInfo senderTable = GetTableInfo(typeof(T));
+                SQLTableInfo senderTable = GetTableInfo(typeof(T), tableName);
+                //Override table name if explicitly specified as input
+                if (!string.IsNullOrEmpty(tableName)) senderTable.TableName = tableName;
                 return ReadFromDatabaseInt<T>(senderTable, whereStatement);
             }
             finally
             {
-                ReadDepth--;
-                if (ReadDepth == 0)
-                {
-                    KeepDatabaseOpen = false;
-                    Disconnect();
-                }
+                KeepDatabaseOpen = keepDBOpenFlag;
+                Disconnect();   //Disconnect if necessary
             }
         }
 
-        protected IList<T> ReadFromDatabaseInt<T>(SQLTableInfo senderTable, string whereStatement = null) where T : class, new()
+        /// <summary>
+        /// Internal implementation for read operation. Modifier must be internal for reflection call.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="senderTable"></param>
+        /// <param name="whereStatement"></param>
+        /// <param name="tableName">Table name in SQLite database if different from class name.</param>
+        /// <returns></returns>
+        /// <exception cref="FormatException"></exception>
+        internal IList<T> ReadFromDatabaseInt<T>(SQLTableInfo senderTable, string whereStatement = null) where T : class, new()
         {
             List<T> results = new List<T>();
             string tableName = senderTable.TableName;
@@ -667,8 +721,8 @@ namespace CodeArtEng.SQLite
                     //Get table info
                     SQLTableInfo childTableInfo = r.ChildTableInfo;
                     Type childType = childTableInfo.TableType;
-                    SQLTableItem parentKey = childTableInfo.ParentKeys.FirstOrDefault(n => n.ParentType == senderTable.TableType)
-                        ?? throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
+                    if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
+                        throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
 
                     //Read from child table by parent key ID.
                     MethodInfo ptrReadMethod = this.GetType()
@@ -682,7 +736,7 @@ namespace CodeArtEng.SQLite
                         {
                             int pKey = (int)senderTable.PrimaryKey.GetDBValue(i);
                             //Recursive call to ReadFromDatabse method.
-                            object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {parentKey.Name} == {pKey}" });
+                            object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.ParentKey.Name} == {pKey}" });
                             r.Property.SetValue(i, childItems);
                         }
                     }
@@ -704,7 +758,7 @@ namespace CodeArtEng.SQLite
                     tb.LastReadID = ReadOpID;
 
                     tb.Items.Clear();
-                    string query = $"SELECT ID, Name from {p.IndexTableName}";
+                    string query = $"SELECT ID,Name from {p.IndexTableName}";
                     ExecuteQuery(query, processQueryResults: r =>
                     {
                         while (r.Read())
@@ -724,6 +778,10 @@ namespace CodeArtEng.SQLite
                 throw new InvalidOperationException($"Read Index Table failed for table {table.TableName}!", ex);
             }
         }
+        protected void WriteToDatabase<T>(params T[] senders) where T : class
+        {
+            WriteToDatabase(senders, string.Empty);
+        }
 
         /// <summary>
         /// Writes an array of objects to a specified database table.
@@ -734,13 +792,14 @@ namespace CodeArtEng.SQLite
         /// <remarks>DateTime shall stored as TEXT. This method works well with <see cref="ExecuteTransaction(Action)"/></remarks>
         /// <typeparam name="T"></typeparam>
         /// <param name="senders"></param>
-        protected void WriteToDatabase<T>(params T[] senders) where T : class
+        protected void WriteToDatabase<T>(T[] senders, string tableName) where T : class
         {
             bool keepDBOpenFlag = KeepDatabaseOpen;
             KeepDatabaseOpen = true; //Overwrite keepdatabase open
             try
             {
-                WriteToDatabaseInt(senders);
+                SQLTableInfo senderTable = GetTableInfo(typeof(T), tableName);
+                WriteToDatabaseInt(senderTable, senders);
 
                 //update index table with new items.
                 foreach (IndexTable i in IndexTables)
@@ -764,7 +823,7 @@ namespace CodeArtEng.SQLite
             }
         }
 
-        private void WriteToDatabaseInt<T>(params T[] senders) where T : class
+        private void WriteToDatabaseInt<T>(SQLTableInfo senderTable, params T[] senders) where T : class
         {
             //IMPORTANT:
             //Connection to database shall not be close throughout the complete execution,
@@ -774,7 +833,6 @@ namespace CodeArtEng.SQLite
             //DO NOT Use transaction as multiple read and write query are used.
 
             Type senderType = senders.First().GetType();
-            SQLTableInfo senderTable = GetTableInfo(senderType);
             string tableName = senderTable.TableName;
 
             // Execute query for each element in the array.
@@ -806,8 +864,17 @@ namespace CodeArtEng.SQLite
                 foreach (SQLTableItem i in senderTable.IndexKeys)
                 {
                     IndexTable indexTable = GetIndexTable(i.IndexTableName);
-                    int id = indexTable.GetIdByName(i.Property.GetValue(item).ToString());
-                    parameters.Add(new SQLiteParameter($"@{i.SQLName}", id));
+                    string value = i.Property.GetValue(item)?.ToString();
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        //Value is null, set parameter value as DBNull.
+                        parameters.Add(new SQLiteParameter($"@{i.SQLName}", DBNull.Value));
+                    }
+                    else
+                    {
+                        int id = indexTable.GetIdByName(i.Property.GetValue(item).ToString());
+                        parameters.Add(new SQLiteParameter($"@{i.SQLName}", id));
+                    }
                 }
 
                 // Execute SQL query for current table
@@ -830,31 +897,73 @@ namespace CodeArtEng.SQLite
                 {
                     //Get child table info and identify parent key
                     SQLTableInfo childTableInfo = t.ChildTableInfo;
-                    Type childType = childTableInfo.TableType;
-                    SQLTableItem parentKey = childTableInfo.ParentKeys.FirstOrDefault(n => n.ParentType == senderTable.TableType)
-                        ?? throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
+                    if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
+                        throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
 
                     //Assign parent id to parent key
                     IList childs = t.Property.GetValue(item) as IList;
                     List<object> childList = new List<object>();
                     foreach (object c in childs)
                     {
-                        parentKey.Property.SetValue(c, pKeyID);
+                        childTableInfo.ParentKey.Property.SetValue(c, pKeyID);
                         childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
                     }
 
                     string dbBackup = SetSecondaryDBPath(t);
                     try
                     {
+                        //When updating existing items, delete existing child items before writing updated one.
+                        DeleteChildItemsByParentID(childTableInfo, pKeyID);
                         //Recusive write to child table items.
-                        WriteToDatabaseInt(childList.ToArray());
+                        WriteToDatabaseInt(childTableInfo, childList.ToArray());
                     }
                     finally { RestorePrimaryDBPath(dbBackup); }
                 }
             }//for each items in senders
-
         }
+
+        private void DeleteChildItemsByParentID(SQLTableInfo childTableInfo, int parentID)
+        {
+            string query = $"DELETE FROM {childTableInfo.TableName} WHERE {childTableInfo.ParentKey.Name} == {parentID}";
+            ExecuteNonQuery(query);
+        }
+
+        /// <summary>
+        /// Delete items and it's child items from database by primary key. 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="senders"></param>
+        protected void DeleteFromDatabaseByID<T>(params T[] senders)
+        {
+            DeleteFromDatabaseByID(senders, string.Empty);
+        }
+
+        protected void DeleteFromDatabaseByID<T>(T[] senders, string tableName)
+        {
+            Type senderType = senders.First().GetType();
+            SQLTableInfo senderTable = GetTableInfo(senderType, tableName);
+
+            if (senderTable.PrimaryKey == null) throw new ArgumentException("Unable to delete items, primary key not declared!");
+            foreach (T item in senders)
+            {
+                //Get primary key for each item.
+                int pKey = (int)senderTable.PrimaryKey.Property.GetValue(item);
+
+                //Delete all child items by parent's primary key.
+                foreach (SQLTableItem t in senderTable.ChildTables)
+                {
+                    SQLTableInfo childTableInfo = t.ChildTableInfo;
+                    ExecuteNonQuery($"DELETE FROM {childTableInfo.TableName} WHERE {childTableInfo.ParentKey.Name} == {pKey}");
+                }
+
+                //Delete parent instance
+                ExecuteNonQuery($"DELETE FROM {senderTable.TableName} WHERE {senderTable.PrimaryKey.SQLName} == {pKey}");
+            }
+        }
+
         #endregion
+
+        #region [ Switch Database ]
 
         /// <summary>
         /// Used by <see cref="WriteToDatabaseInt{T}(T[])"/> and <see cref="ReadFromDatabaseInt{T}(SQLTableInfo, string)"/>
@@ -884,5 +993,7 @@ namespace CodeArtEng.SQLite
         {
             if (!string.IsNullOrEmpty(dbPath)) SetSQLPath(dbPath);
         }
+
+        #endregion
     }
 }

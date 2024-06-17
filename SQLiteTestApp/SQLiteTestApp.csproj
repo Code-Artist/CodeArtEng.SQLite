@@ -51,9 +51,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\CodeArtEng.SQLite.Tests\SQLiteTestDB.cs">
-      <Link>SQLiteTestDB.cs</Link>
-    </Compile>
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -23,7 +23,7 @@ namespace CodeArtEng.SQLite
     public class ParentKeyAttribute : Attribute
     {
         public Type Parent { get; }
-        public ParentKeyAttribute(Type parentType = null) => Parent = parentType;
+        public ParentKeyAttribute(Type parentType) => Parent = parentType;
     }
 
     /// <summary>

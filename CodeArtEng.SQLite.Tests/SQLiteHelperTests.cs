@@ -1,343 +1,340 @@
 ﻿using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 //ToDo: TestCase: Read from tables which have more columns than class
 namespace CodeArtEng.SQLite.Tests
 {
+    //Test Cases:
+    // Read table
+    // Read tablw with condition
+    // Read table to class - class have less column
+    // Read table to class - class have more columns
+    // Write table 
+    // Write table with properties from another DB
+    // Utility:
+    //  Get Table name
+    //  Get table schema
+    //  Get table schema, table not exitss.
+
+
     [TestFixture]
     internal class SQLiteHelperTests
     {
-        private readonly SQLiteTestDB DB;
+        private readonly SQLiteMockedDB DB;
 
         public SQLiteHelperTests()
         {
-            DB = new SQLiteTestDB("TestDB.db");
+            DB = new SQLiteMockedDB("TestDB.db");
         }
 
-        #region [ Basic Operations ]
+        #region [ Status Check ]
 
-        [Test]
-        public void DatabaseReadOnly()
+        [Test, Order(0)]
+        public void DatabaseReadOnly_False()
         {
             Assert.That(DB.ReadOnly, Is.False);
         }
 
-        [Test]
-        public void DatabaseOnline()
+        [Test, Order(0)]
+        public void DatabaseReadOnly()
+        {
+            SQLiteMockedDB temp = new SQLiteMockedDB("TestDB.db", isReadOnly: true);
+            Assert.That(temp.ReadOnly, Is.True);
+        }
+
+        [Test, Order(0)]
+        public void DatabaseOnline_NotConnected()
         {
             Assert.That(DB.IsDatabaseOnline(), Is.True);
             Assert.That(DB.IsConnected, Is.False);
         }
 
-        [Test]
-        public void DummyDatabaseOffline()
+        [Test, Order(0)]
+        public void DummyDatabaseOffline_FileNotExists()
         {
-            SQLiteTestDB db = new SQLiteTestDB("Dummy.db");
+            SQLiteMockedDB db = new SQLiteMockedDB("Dummy.db");
             Assert.That(db.IsDatabaseOnline(), Is.False);
         }
 
-        [Test]
-        public void ReadTableA()
-        {
-            DB.TableAItems.Clear();
-            DB.ReadTableA();
-            Assert.That(DB.TableAItems.Count, Is.EqualTo(3));
-            Assert.That(DB.IsConnected, Is.False);
-        }
+        #endregion
+
+        #region [ Utility ]
 
         [Test]
-        public void ReadTableACondition()
+        public void StringGeneratorCheck()
         {
-            IList<TableA> items = DB.ReadFromDatabase<TableA>("WHERE ID == 1");
-            Assert.That(items.Count, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void ReadTableA_KeepOpen()
-        {
-            DB.KeepDatabaseOpen = true;
-            try
-            {
-                DB.ReadTableA();
-                Assert.That(DB.IsConnected, Is.True);
-            }
-            finally
-            {
-                DB.KeepDatabaseOpen = false;
-            }
-        }
-
-        [Test]
-        public void ExecuteScalar()
-        {
-            Assert.That(DB.ExecuteScalar_TableA(3), Is.EqualTo("Ethan"));
-            Assert.That(DB.IsConnected, Is.False);
-        }
-
-        [Test]
-        public void ExecuteScalarTestInvalid_ReturnNull()
-        {
-            Assert.That(DB.ExecuteScalar_TableA(10), Is.Null);
-            Assert.That(DB.IsConnected, Is.False);
-        }
-
-        [Test]
-        public void ExecuteNonQuery()
-        {
-            Assert.That(DB.ExecuteNonQuery("INSERT OR REPLACE INTO TABLEA (ID, Name) VALUES (2, 'MARY')"), Is.EqualTo(1));
-            Assert.That(DB.IsConnected, Is.False);
-        }
-
-        [Test]
-        public void ExecuteNonQuery_BadQuery_Exception()
-        {
-            Assert.Throws<System.Data.SQLite.SQLiteException>(() => { DB.ExecuteNonQuery("BAD QUERY"); });
-        }
-
-        [Test]
-        public void Transactions()
-        {
-            Dictionary<int, string> B = new Dictionary<int, string>
-            {
-                { 1, "A" },
-                { 2, "B" },
-                { 3, "C" },
-                { 4, "D" }
-            };
-
-
-            DB.ExecuteTransaction(() =>
-            {
-                foreach (KeyValuePair<int, string> i in B)
-                {
-                    DB.ExecuteNonQuery($"INSERT INTO TABLEB (Id, Name) VALUES ({i.Key}, '{i.Value}')");
-                    Assert.That(DB.IsConnected); //Make sure database still connected 
-                }
-            });
-            Assert.That(DB.IsConnected, Is.False);
-            Assert.That(DB.ExecuteScalar("SELECT COUNT(*) FROM TABLEB"), Is.EqualTo(4));
+            string result = DB.GenerateString(20);
+            Assert.That(result.Length, Is.EqualTo(20));
         }
 
         [Test]
         public void GetTableNames()
         {
-            Assert.That(string.Join(",", DB.GetTables()).StartsWith("TableA,TableB,TableC"));
+            string[] tables = DB.GetTables();
+            Assert.That(tables.Length > 5);
+            Assert.That(tables.Contains("ParentTable"));
+            Assert.That(tables.Contains("TableWithPrimaryKey"));
         }
 
         [Test]
         public void GetTableSchema()
         {
-            Assert.That(DB.GetDBSchema("TableB").StartsWith("CREATE"), Is.True);
+            string schema = DB.GetTableSchema("ParentTable");
+            Assert.That(schema.StartsWith("CREATE") && schema.Contains("ParentTable"));
         }
 
         [Test]
         public void GetTableSchema_TableNotExists_ReturnNull()
         {
-            Assert.That(DB.GetDBSchema("NoSuchTable"), Is.Null);
+            Assert.That(DB.GetTableSchema("NoSuchTable") == null);
         }
 
         [Test]
         public void GetTableSchemaSQLInject()
         {
-            //Make sure table is not dropped due to SQL Injection
-            string schema = DB.GetDBSchema("TableB'; DROP TABLE TableB; --");
-            Assert.That(DB.GetTables().Contains("TableB"));
+            string schema = DB.GetTableSchema("'ParentTable'; DROP TABLE TableB; --");
+            Assert.That(DB.GetTables().Contains("ParentTable"));
             Assert.That(schema, Is.Null);
         }
 
         [Test]
-        public void ReadFromDatabase_TableA()
-        {
-            TableA[] results = DB.ReadFromDatabase<TableA>().ToArray();
-            Assert.That(results.Length, Is.EqualTo(3));
-            Assert.That(results[0].LocalProperty, Is.EqualTo("DO NOT CHANGE"));
-        }
-
-        [Test]
-        public void WriteItemsToDatabase_TableB()
-        {
-            DB.ClearTable(nameof(TableB));
-            Assert.That(DB.ReadFromDatabase<TableB>().Count, Is.EqualTo(0));
-            List<TableB> BItems = new List<TableB>
-            {
-                new TableB(10, "Lina Peck", 120.21, Option.OptionA),
-                new TableB(11, "Dion Rice", 45.99, Option.OptionB),
-                new TableB(12, "Jurassic Park", 68.10, Option.OptionC)
-            };
-            BItems.Last().Flag = false;
-
-            DB.WriteItemsToDatabase(BItems.ToArray());
-            TableB[] items = DB.ReadFromDatabase<TableB>().ToArray();
-            Assert.That(items.Length, Is.EqualTo(3));
-            Assert.That(items.Last().Flag, Is.False);
-        }
-
-        [Test]
-        public void DeleteTable_NoSuchTable_Exception()
+        public void ClearTable_NoSuchTable_Exception()
         {
             Assert.Throws<InvalidOperationException>(() => { DB.ClearTable("NoSuchTable"); });
         }
 
-        #endregion 
+        #endregion
 
-        #region [ Primary Key ]
-        public class TableC
+        #region [ 1 - Table with Primary Key ]
+
+        int TbLength = 100;
+        TableWithPrimaryKey[] Source, Readback;
+
+        [Test, Order(10)]
+        public void PK_WriteTableWithPrimaryKey()
         {
-            public TableC() { }
-            [PrimaryKey]
-            public int ID { get; set; }
-            public string Name { get; set; }
-            public TableC(string name) { Name = name; }
+            Source = DB.WriteTableWithPrimaryKey(TbLength);
+            Assert.That(Source.Length, Is.EqualTo(TbLength));
+
+            //Primary key check.
+            Assert.That(!Source.Select(n => n.ID).Contains(0));
+            Assert.That(Source.Select(n => n.ID).Distinct().Count() == TbLength);
         }
 
-        [Test]
-        public void WriteTableWithPrimaryKey()
+        [Test, Order(11)]
+        public void PK_ReadTableWithPrimaryKey()
         {
-            string text = "Mary had a little lamb.";
-            List<TableC> items = new List<TableC>();
-            foreach (string t in text.Split(' '))
-            {
-                items.Add(new TableC(t));
-            }
-            DB.WriteToDatabase(items.ToArray());
-            List<TableC> readback = DB.ReadFromDatabase<TableC>().ToList();
-            Assert.That(readback.Count, Is.EqualTo(5));
-            Assert.That(readback.First(n => n.ID == 3).Name, Is.EqualTo("a"));
-
-            //Verify that primary key items does not get duplicated
-            DB.WriteToDatabase(items.ToArray());
-            readback = DB.ReadFromDatabase<TableC>().ToList();
-            Assert.That(readback.Count, Is.EqualTo(5));
+            Readback = DB.ReadTableWithPrimaryKey();
+            Assert.That(Readback.Length, Is.EqualTo(TbLength));
         }
 
+        [Test, Order(12)]
+        public void PK_CompareTableWithPrimaryKey()
+        {
+            foreach (TableWithPrimaryKey r in Readback)
+            {
+                TableWithPrimaryKey s = Source.FirstOrDefault(n => n.ID == r.ID);
+                if (s == null) Assert.Fail("No match found for key " + r.ID);
+                if (s.CompareTo(r) != 0) Assert.Fail("Readback value mismatched");
+            }
+        }
+
+        [Test, Order(13)]
+        public void PK_ModifyExistingItemsValue()
+        {
+            List<TableWithPrimaryKey> items = new List<TableWithPrimaryKey>();
+            for (int x = 0; x < 3; x++)
+            {
+                TableWithPrimaryKey k = Source.First(n => n.ID == (x + 1));
+                k.Name = "Name " + x.ToString();
+                items.Add(k);
+            }
+            DB.UpdateTableWithPrimaryKey(items.ToArray());
+
+            Readback = DB.ReadTableWithPrimaryKey();
+            Assert.That(Readback.Length == TbLength);
+            for (int x = 0; x < 3; x++)
+            {
+                Assert.That(items[x].CompareTo(Readback[x]) == 0, "Compare failed at index " + x.ToString());
+            }
+        }
+
+        [Test, Order(14)]
+        public void PK_RemoveItemsFromList()
+        {
+            TableWithPrimaryKey itemToDelete = Source[8];
+            DB.DeleteItemFromTableWithPrimaryKey(itemToDelete);
+            TableWithPrimaryKey[] readBackItems = DB.ReadTableWithPrimaryKey();
+            Assert.That(readBackItems.Length == (TbLength - 1));
+            Assert.That(readBackItems.FirstOrDefault(n => n.ID == itemToDelete.ID) == null);
+        }
+
+        [Test, Order(15)]
+        public void PK_AddNewItems()
+        {
+            TableWithPrimaryKey newItem = new TableWithPrimaryKey() { Name = "NewItem" };
+            DB.UpdateTableWithPrimaryKey(newItem);
+            Assert.That(newItem.ID != 0);
+
+            Readback = DB.ReadTableWithPrimaryKey();
+            Assert.That(Readback.Length == TbLength);
+        }
+
+        #endregion
+
+        #region [ 2 - Parent and Child Table ]
+
+        //Test basic write and read
+        //Modify content: add, remove.
+        //Read back and verify again
+
+        int ParentLength = 10;
+        int MaxChildLength = 20;
+        int ParentTableChildItems;
+        ParentTable[] ParentTableItems, ParentTableReadback;
+        ParentTable[] NewItems;
+
+        [Test, Order(20)]
+        public void R_WriteParentChildTable()
+        {
+            ParentTableItems = DB.WriteParentTable(ParentLength, MaxChildLength);
+            ParentTableChildItems = ParentTableItems.Sum(n => n.ChildItems.Count);
+            Assert.That(ParentTableItems.Length, Is.EqualTo(ParentLength));
+        }
+
+        [Test, Order(21)]
+        public void R_ReadParentChildTable()
+        {
+            ParentTableReadback = DB.ReadParentTable();
+            Assert.That(ParentTableReadback.Length, Is.EqualTo(ParentLength));
+            Assert.That(ParentTableChildItems == ParentTableReadback.Sum(n => n.ChildItems.Count));
+        }
+
+        [Test, Order(22)]
+        public void R_ModifyExistingItems()
+        {
+            List<ParentTable> items = new List<ParentTable>();
+            for (int x = 0; x < 3; x++)
+            {
+                ParentTable k = ParentTableItems.First(n => n.ID == (x + 1));
+                k.Name = "Name " + x.ToString();
+                items.Add(k);
+                for (int y = 0; y < k.ChildItems.Count; y++)
+                {
+                    k.ChildItems[y].Value = (x * 100) + y;
+                }
+            }
+            DB.UpdateParentTable(items.ToArray());
+
+            ParentTableReadback = DB.ReadParentTable();
+            foreach (ParentTable i in items)
+            {
+                ParentTable ptrItem = ParentTableReadback.FirstOrDefault(n => n.ID == i.ID);
+                Assert.That(ptrItem != null);
+                Assert.That(i.ChildItems.Count == ptrItem.ChildItems.Count);
+            }
+        }
+
+        [Test, Order(23)]
+        public void R_AddNewItems()
+        {
+            List<ParentTable> items = new List<ParentTable>();
+            for (int x = 0; x < 5; x++)
+            {
+                ParentTable ptrItem = new ParentTable() { Name = "NewItem " + x.ToString() };
+                for (int y = 0; y < 10; y++)
+                {
+                    ptrItem.ChildItems.Add(new ChildTable() { Value = (x * 100) + y });
+                }
+                items.Add(ptrItem);
+            }
+            NewItems = items.ToArray();
+            DB.UpdateParentTable(NewItems);
+
+            ParentTable[] readback = DB.ReadParentTable();
+            Assert.That(readback.Length == (ParentLength + 5));
+            Assert.That(DB.ParentTableCountChildItems() != ParentTableChildItems);
+        }
+
+        [Test, Order(24)]
+        public void R_DeleteItems()
+        {
+            DB.DeleteItemsFromParentTable(NewItems);
+            ParentTable[] readback = DB.ReadParentTable();
+            Assert.That(readback.Length == ParentLength);
+            Assert.That(DB.ParentTableCountChildItems() == ParentTableChildItems);
+        }
+
+        #endregion
+
+        #region [ 3 - Split Tables Test ]
+
+        int SplitTableLength = 10;
+        SplitTable[] SplitTableItems, SplitTableReadback;
+
+        [Test, Order(30)]
+        public void S_WriteSplitTable()
+        {
+            SplitTableItems = DB.WriteSplitTable(SplitTableLength);
+            Assert.That(SplitTableItems.Length, Is.EqualTo(SplitTableLength));
+        }
+
+        [Test, Order(31)]
+        public void S_ReadSplitTable()
+        {
+            SplitTableReadback = DB.ReadSplitTable();
+            Assert.That(SplitTableReadback.Length, Is.EqualTo(SplitTableLength));
+        }
+
+        #endregion
 
         [Test]
-        public void WriteTableWithPrimaryKey_Transaction()
+        public void SimulateLockedDatabase()
         {
-            DB.ClearTable<TableC>();
-            string text = "Mary had a little lamb.";
-            List<TableC> items = new List<TableC>();
-            foreach (string t in text.Split(' '))
+            //Simulate lock database for 2 seconds.
+            Task t = new Task(LockDatabase);
+            t.Start();
+            SQLiteMockedDB db2 = new SQLiteMockedDB("TestDB.db");
+            DateTime tStart = DateTime.Now;
+            try
             {
-                items.Add(new TableC(t));
+                //Failed at ~500ms when all values set to 0
+                //Failed at ~700ms with step retries set to 10
+                //Failed at ~700ms with busy timeout set to
+                //Default timeout had no effect on locked database retry
+                //StepRetries = 10, BusyTimeout - 100 - Test time 3.2 seconds
+                db2.SQLStepRetries = 10;
+                db2.SQLBusyTimeout = 500;
+                //db2.DBConnection.DefaultTimeout = 100;
+
+                System.Threading.Thread.Sleep(500); //Delay make sure DB is locked
+                db2.WriteMiscKey(nameof(SimulateLockedDatabase));
+
             }
+            catch (Exception ex)
+            {
+                Assert.Fail(ex.Message);
+            }
+            finally
+            {
+                double seconds = (DateTime.Now - tStart).TotalSeconds;
+                Assert.That(seconds, Is.GreaterThan(1.5));
+            }
+        }
+
+        private void LockDatabase()
+        {
             DB.ExecuteTransaction(() =>
             {
-                DB.WriteToDatabase(items.ToArray());
+                DB.WriteMiscKey("LOCK");
+                System.Threading.Thread.Sleep(2000);
             });
-            List<TableC> readback = DB.ReadFromDatabase<TableC>().ToList();
-            Assert.That(readback.Count, Is.EqualTo(5));
-            Assert.That(readback.First(n => n.ID == 5).Name, Is.EqualTo("lamb."));
-        }
-
-        #endregion
-
-        #region [ SQLRelation, Foreign Key ]
-        public class Department
-        {
-            //DB Table: ID, Name
-
-            [PrimaryKey]
-            public int ID { get; set; }
-            public string Name { get; set; }
-            [SQLName("Employee")]
-            public List<Employee> Employees { get; set; } = new List<Employee>();
-        }
-
-        public class Employee
-        {
-            //DB Table: ID, Name, DepartmentID
-
-            [PrimaryKey]
-            public int ID { get; set; }
-            [SQLIndexTable]
-            [SQLName("NameID")]
-            public string Name { get; set; }
-            [ParentKey(typeof(Department))]
-            public int DepartmentID { get; set; }
-        }
-
-        [Test]
-        public void WriteTableWithRelation()
-        {
-            List<Department> department = new List<Department>();
-            for (int n = 0; n < 3; n++)
-            {
-                Department pDept = new Department() { Name = "Dept " + n };
-                department.Add(pDept);
-                for (int x = 0; x < 3; x++)
-                    pDept.Employees.Add(new Employee() { Name = pDept.Name + "_Employee " + x });
-            }
-            DB.WriteToDatabase(department.ToArray());
-            TestContext.Progress.WriteLine("Write Department table completed.");
-            Debug.WriteLine("Write operation completed.\n");
-
-            List<Department> departmentRead = DB.ReadFromDatabase<Department>().ToList();
-            Assert.That(departmentRead.Count, Is.EqualTo(3));
-            Assert.That(departmentRead.First().Employees.Count, Is.EqualTo(3));
-
-            //Validate Index Table conversion success.
-            Assert.That(departmentRead.First().Employees.First().Name.StartsWith("Dept"));
-        }
-        #endregion
-
-        #region [ Store DateTime as Ticks ]
-
-        public class TimeTable
-        {
-            [SQLDataType(SQLDataType.INTEGER)]
-            public DateTime Time { get; set; }
-            public string Value { get; set; }
-        }
-
-        [Test]
-        public void StoreTestTimeAsTicks()
-        {
-            if (DB.GetTables().Contains("TimeTable"))
-                DB.ExecuteNonQuery("DROP TABLE TimeTable");
-
-            DB.ExecuteNonQuery(@"CREATE TABLE ""TimeTable"" (
-	                            ""Time""	INTEGER,
-	                            ""Value""	TEXT
-                            )");
-
-
-            List<TimeTable> items = new List<TimeTable>();
-            items.Add(new TimeTable()
-            {
-                Time = new DateTime(2024, 2, 1, 15, 30, 00),
-                Value = "Time 1"
-            });
-            items.Add(new TimeTable()
-            {
-                Time = new DateTime(2024, 5, 1, 9, 23, 10),
-                Value = "Time 2"
-            });
-
-            DB.WriteToDatabase(items.ToArray());
-            List<TimeTable> readBack = DB.ReadFromDatabase<TimeTable>().ToList();
-
-            Assert.That(items.Count, Is.EqualTo(readBack.Count));
-            Assert.That(readBack[0].Time, Is.EqualTo(items[0].Time));
-        }
-
-
-        #endregion
-
-        [SQLName("TableA")]
-        class TableA2
-        {
-            public string Name { get; set; }
-        }
-
-        [Test]
-        public void ReadFromTableA_ReducedColumns()
-        {
-            TableA2[] items = DB.ReadFromDatabase<TableA2>().ToArray();
-            Assert.That(items.Count, Is.EqualTo(3));
         }
     }
 }

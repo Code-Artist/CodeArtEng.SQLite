@@ -12,7 +12,7 @@ namespace CodeArtEng.SQLite
     /// <summary>
     /// Information for class which represent SQL database table.
     /// </summary>
-    public class SQLTableInfo
+    internal class SQLTableInfo
     {
         /// <summary>
         /// Return string for current object to ease debugging process.
@@ -38,7 +38,7 @@ namespace CodeArtEng.SQLite
         /// is used as table name.
         /// Use <see cref="SQLNameAttribute"/> to override default table name in properties or class declaration.
         /// </summary>
-        public string TableName { get; private set; }
+        public string TableName { get; set; }
 
         /// <summary>
         /// Properties excluded from database columns.
@@ -56,7 +56,7 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Properties which hold ID to parent table. Expecting integer value.
         /// </summary>
-        public SQLTableItem[] ParentKeys { get; private set; }
+        public SQLTableItem ParentKey { get; private set; }
         /// <summary>
         /// Properties where values are defined in key value pair table in database.
         /// Table name defined by property name or <see cref="SQLNameAttribute"/>.
@@ -68,20 +68,11 @@ namespace CodeArtEng.SQLite
         /// </summary>
         public SQLTableItem[] ChildTables { get; private set; }
 
+
         /// <summary>
         /// Constructor for Child Table. Override table name when necessary.
         /// One to one: Property with class object.
         /// One to many: List property with class object.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="tableName"></param>
-        internal SQLTableInfo(Type sender, string tableName) : this(sender)
-        {
-            TableName = tableName;
-        }
-
-        /// <summary>
-        /// Constructor by type.
         /// </summary>
         /// <param name="sender"></param>
         /// <exception cref="NotSupportedException">Error when mulitple primary keys is defined.</exception>
@@ -89,10 +80,10 @@ namespace CodeArtEng.SQLite
         /// 1. Child table exists but Primary key not defined.
         /// 2. Child table does not contain parent key for current type.
         /// </exception>
-        public SQLTableInfo(Type sender)
+        public SQLTableInfo(Type sender, string tableName = null)
         {
             TableType = sender;
-            TableName = sender.SQLName();
+            TableName = !string.IsNullOrEmpty(tableName) ? tableName:  sender.SQLName();
 
             PropertyInfo[] properties = sender.GetProperties().Where(p => p.CanRead && p.CanWrite).ToArray();
             IgnoredProperties = properties.Where(n => Attribute.IsDefined(n, typeof(IgnoreSQLColumnAttribute))).ToArray();
@@ -106,7 +97,10 @@ namespace CodeArtEng.SQLite
             PrimaryKey = Columns.FirstOrDefault(n => n.IsPrimaryKey);
             if (PrimaryKey != null) Columns = Columns.Except(new[] { PrimaryKey }).ToArray();
 
-            ParentKeys = Columns.Where(n => n.IsParentKey).ToArray();
+            //Limit to one parent key only.
+            SQLTableItem[] parentKeys = Columns.Where(n => n.IsParentKey).ToArray();
+            if (parentKeys.Length > 1) throw new FormatException($"Declaration error in class {Name}, only 1 parent key is allowed!");
+            ParentKey = parentKeys.FirstOrDefault();
             IndexKeys = Columns.Where(n => n.IsIndexTable).ToArray();
 
             ChildTables = Columns.Where(n => n.IsChildTable).ToArray();
@@ -121,11 +115,11 @@ namespace CodeArtEng.SQLite
             }
             else if (ChildTables.Length > 0)
             {
-                if (PrimaryKey == null) throw new FormatException($"Missing primakry key for table {TableName}!");
+                if (PrimaryKey == null) throw new FormatException($"Missing primary key for table {TableName}!");
                 foreach (SQLTableItem i in ChildTables)
                 {
-                    if (i.GetParentKeyByType(TableType) == null)
-                        throw new FormatException($"Parent key {TableType} not found in class {i.Name}!");
+                    if (i.ChildTableInfo.ParentKey.ParentType != TableType)
+                        throw new FormatException($"Parent key {TableType} not found in table {i.SQLName}!");
                 }
             }
         }
@@ -134,7 +128,7 @@ namespace CodeArtEng.SQLite
     /// <summary>
     /// Property item which describe SQL table columns / child tables.
     /// </summary>
-    public class SQLTableItem
+    internal class SQLTableItem
     {
         /// <summary>
         /// Return string for current object to ease debugging process.
@@ -193,7 +187,7 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Information table for child object.
         /// </summary>
-        public SQLTableInfo ChildTableInfo { get; private set; }
+        internal SQLTableInfo ChildTableInfo { get; private set; }
 
 
         Action<Type, object> SetterMethod;
@@ -259,24 +253,6 @@ namespace CodeArtEng.SQLite
                 SecondaryDatabaseFilePath = (Attribute.GetCustomAttribute(property, typeof(SQLDatabseAttribute))
                                     as SQLDatabseAttribute).DatabaseFilePath;
             }
-        }
-        /// <summary>
-        /// Return parent key by input type.
-        /// </summary>
-        /// <param name="parentType"></param>
-        /// <returns></returns>
-        /// <exception cref="ArgumentException">Property is not valid child table.</exception>
-        /// <exception cref="ArgumentNullException">
-        /// 1. Child table info not defined.
-        /// 2. No parent key defined in child class.
-        /// </exception>
-        public SQLTableItem GetParentKeyByType(Type parentType)
-        {
-            if (!IsChildTable) throw new ArgumentException($"Property {Name} is not valid child table!");
-            if (ChildTableInfo == null) throw new ArgumentNullException($"ChildTableInfo is null for {Name}!");
-            SQLTableInfo info = ChildTableInfo;
-            if (info.ParentKeys.Length == 0) throw new ArgumentNullException($"No parent key defined in class {Name}!");
-            return info.ParentKeys.FirstOrDefault(n => n.ParentType == parentType);
         }
 
         /// <summary>
