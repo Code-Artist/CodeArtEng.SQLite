@@ -1,21 +1,24 @@
-- [SQLite Helper: A Micro-ORM for SQLite Database](#sqlite-helper--a-micro-orm-for-sqlite-database)
+# SQLite Helper: A Micro-ORM for SQLite Database
+- [Introduction](#introduction)
   * [Dependency](#dependency)
   * [Key Features of SQLite Helper](#key-features-of-sqlite-helper)
   * [Anatomy of SQLiteHelper](#anatomy-of-sqlitehelper)
 - [Using SQLiteHelper](#using-sqlitehelper)
   * [Create SQLite Database class](#create-sqlite-database-class)
+  * [Basic Query Functions](#basic-query-functions)
   * [Read from Database Table](#read-from-database-table)
-  * [Update Data to Database](#update-data-to-database)
-- [ORM](#orm)
-  * [Table Name](#table-name)
-  * [Column Name](#column-name)
-  * [Data Type](#data-type)
-  * [Index Table](#index-table)
-  * [Primary Key](#primary-key)
-  * [Child Table](#child-table)
-  * [Multiple Database Source](#multiple-database-source)
+  * [Write Data to Database](#write-data-to-database)
+  * [Reading and Writing Complex Tables (ORM)](#reading-and-writing-complex-tables--orm-)
+    + [Table Name](#table-name)
+    + [Column Name](#column-name)
+    + [Data Type](#data-type)
+    + [Index Table](#index-table)
+    + [Primary Key](#primary-key)
+    + [Parent and Child Tables](#parent-and-child-tables)
+    + [Multiple Database Source](#multiple-database-source)
+- [Suggestion and Feedback](#suggestion-and-feedback)
 
-# SQLite Helper: A Micro-ORM for SQLite Database
+# Introduction
 SSQLite Helper is a micro-Object-Relational Mapping (ORM) tool crafted to facilitate application development with SQLite databases. It is particularly well-suited for small to medium-scale applications, negating the necessity of authoring each SQL query from the ground up.
 
 Conversely, Entity Framework (EF) is a comprehensive ORM offering a complete suite of functionalities. However, more features do not inherently equate to superiority. It is prudent to weigh the [Pros and Cons of EF](https://www.codearteng.com/2024/04/entity-framework-advantages-and.html) prior to its adoption.
@@ -46,8 +49,11 @@ In conclusion, `SQLiteHelper` is an essential tool for developers working with S
 * **SQLAttribute**: Attribute base class for table mapping.
 
 # Using SQLiteHelper
+As a helper class, most methods within `SQLiteHelper` are designated as protected, as it is not anticipated that users of derived classes will interact directly with the database layer. All operations related to the database should remain concealed from the user at both the API and application levels.
+
 ## Create SQLite Database class
-Create project specific database class inherite from `SQLiteHelper` class.
+Create project specific database class inherits from `SQLiteHelper` class.
+`SetSQLPath` have an optional `readOnly` parameter when set to true will open the database file in read only mode.
 ```C#
 public class MyDatabase : SQLiteHelper
 {
@@ -56,6 +62,30 @@ public class MyDatabase : SQLiteHelper
         SetSQLPath(databaseFilePath);
     }
 }
+```
+
+### Handling Busy Connection
+Proper handling of retry and timeout is crucial to ensure transaction completed successfully without impact user experience.
+Parameters `SQLStepRetries` and `SQLBusyTimeout` are 2 important parameters to define how many iteration and delay used to retry for busy (locked database) connection.
+
+## Basic Query Functions
+In SQLite Helper, we offer a suite of query methods that internally handle database connections, eliminating the need to search for unclosed connections that could result in a locked database.
+```C#
+protected void ExecuteQuery(string query, Action<SQLiteDataReader> processQueryResults)
+protected object ExecuteScalar(string query)
+protected int ExecuteNonQuery(string query)
+protected void ExecuteTransaction(Action performTransactions)
+```
+Example below show usage of `ExecuteQuery` method. Connection are closed and `SQLiteDataReader` object `r` is disposed at end of `ExecuteQuery` method.
+```C#
+  ExecuteQuery(query, (r)=>
+  {
+      while(r.Read())
+      {
+          //ToDo: Perform readback here...
+      }
+  });
+
 ```
 
 ## Read from Database Table
@@ -119,13 +149,13 @@ public void WriteEmployeeData(Employee[] newDatas)
 }
 ```
 
-# Reading and Writing Tables (ORM)
+## Reading and Writing Complex Tables (ORM)
 The ReadFromDatabase and WriteToDatabase methods make it easy to link objects in your code to tables in your database. They work well with tables that have relationships (child tables) and can handle working with more than one database using simple commands. Let’s take a closer look at what they can do.
 
 These methods follow the Fail Fast Principle, which means they quickly check if the structure of your objects matches the structure of your database tables when you first use them. This check is to make sure that all the columns match up. To avoid problems with older versions, your database tables can have extra columns that aren’t in your objects, but not the other way around.
 
-## Table Name
-Mapping a class to database table named *Employee*.
+### Table Name
+Mapping a class to database table named *Employee*. Use `SQLName` attribute to overwrite default table name.
 ```C#
 public class Employee { ... }
 
@@ -133,10 +163,10 @@ public class Employee { ... }
 public class Emp { ... }
 ```    
 
-## Column Name
+### Column Name
 All public properties that have public getters and setters are regarded as SQL columns.
 The names of these properties are, by default, used as the names of the corresponding columns.
-The `SQLName` attribute can be used to overwrite the default column name.
+The `SQLName` attribute can be used to overwrite the default column name or table name.
 
 ```C#
 public class Employee
@@ -159,7 +189,7 @@ public class Employee
 }
 ```
 
-## Data Type
+### Data Type
 The table below displays the default data type mappings between objects and the database. Ensuring matching data types is crucial for the accurate writing and reading of data.
 **NOTE**: SQLite may automatically convert values to the appropriate datatype. More details in SQLite documentation [Type Affinity](https://sqlite.org/datatype3.html#type_affinity)
 
@@ -183,7 +213,7 @@ public class MyTable
 }
 ```
 
-## Index Table
+### Index Table
 The example below demonstrates that `UserName` is stored as an index in the `NameID` column of the `Employee` table, while the actual string value is kept in a key-value pair table named `Name`. This method facilitates efficient data retrieval and management, particularly when the same name is used multiple times across different tables.
 
 Table name parameter for `SQLIndexTable` is optional. If left blank, the property name `UserName` will be used as the table name. The values for the index table can be shared among multiple tables.
@@ -192,7 +222,7 @@ Table name parameter for `SQLIndexTable` is optional. If left blank, the propert
 public class Employee
 {
     [SQLIndexTable("Name")]
-    [SQLName(""NameID")]
+    [SQLName("NameID")]
     public string UserName {get; set;}
 }
 ```
@@ -207,7 +237,7 @@ Name (Table)
   |- Name, TEXT
 ```
 
-## Primary Key
+### Primary Key
 The primary key attribute is linked to the primary key in the database table. When the `WriteToDatabase` method is executed with an item whose ID is 0, it will create a new entry in the database table and assign it a unique ID. If the ID is not 0, it will update the existing row with the matching ID.
 **NOTE:** Primary key must be declared with `int` type.
 ```C#
@@ -219,8 +249,12 @@ public class Employee
 }
 ```
 
-## Child Table
-Let's examine the example provided: In database, `Department` serves as a parent table, and `List<Employee>` functions as a child table with a one-to-many relationship, where each department can be associated with multiple employees. In other words, for every single entry in the `Department` table, there can be several corresponding entries in the `Employee` table, each representing an individual employee belonging to that department, while each `Employee` is assigned to only one `Department`.
+### Parent and Child Tables
+Let's examine the example provided: In database, `Department` (Table Name: Department) serves as a parent table, and `List<Employee>` (Table Name: Employees) functions as a child table with a one-to-many relationship, where each department can be associated with multiple employees. In other words, for every single entry in the `Department` table, there can be several corresponding entries in the `Employee` table, each representing an individual employee belonging to that department, while each `Employee` is assigned to only one `Department`.
+
+Child table must have a properties ID declared with `ParentKey` attribute which function as mapping between child and parent table. Value of `DepartmentID` in example below is assigned by SQLite Helper. `PrimaryKey` is optional depends on need of the design.
+
+A child table must have an ID property, decorated with `ParentKey` attribute, which serves as the link between  child and parent table. In the example below, parent key value `DepartmentID` is assigned by SQLite Helper.
 
 ```C#
 public class Department
@@ -234,9 +268,6 @@ public class Department
 
 public class Employee
 {
-    [PrimaryKey]
-    public int ID { get; set; }
-    [SQLIndexTable]
     public string Name { get; set; }
     [ParentKey(typeof(Department))]
     public int DepartmentID { get; set; }
@@ -250,14 +281,13 @@ Department (Table)
   |- Name, TEXT
 
 Employee (Table)
-  |- ID, INTEGER, Primary Key
   |- Name, TEXT
   |- DepartmentID, INTEGER  
 ```
-`DepartmentID` stored the `ID` of `Department` table for respective row.
 
-## Multiple Database Source
-SQLiteHelper support multiple database source, allow data to read from tables stored in different SQLite database file. Example below showing that `Department` table is stored in main database while `Employee` table is table stored in **Employee.db**. Switching between main and sub database are handled internally by read and write method.
+### Multiple Database Source
+SQLite Helper also support multiple database source, allow data to be read and write from tables stored in different SQLite database files. Example below showing that `Department` table is stored in main database while `Employee` table is table stored in **Employee.db**. Switching between main and sub database are handled internally by read and write method.
+This `SQLDatabase` attribute can only be used with child table.
 ```C#
 public class Department
 {
@@ -267,3 +297,7 @@ public class Department
     public List<Employee> Employees { get; set; } = new List<Employee>();
 }
 ```
+
+# Suggestion and Feedback
+We hope this document has provided you with clear and helpful information to use this tool.
+Your feedback is invaluable to us as it helps improve the quality of our work and clarity of our documentation. Please share your suggestions, comments, or any difficulties you encountered while using this guide. Your input will assist us in enhancing our resources and supporting users like you more effectively. Thank you for your attention and contribution.
