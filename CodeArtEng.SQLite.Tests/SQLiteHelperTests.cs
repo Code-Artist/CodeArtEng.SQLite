@@ -33,6 +33,13 @@ namespace CodeArtEng.SQLite.Tests
             DB = new SQLiteMockedDB("TestDB.db");
         }
 
+        [Test]
+        public void TestDispose()
+        {
+            SQLiteMockedDB temp = new SQLiteMockedDB("dummy.db");
+            temp.Dispose();
+        }
+
         #region [ Status Check ]
 
         [Test, Order(0)]

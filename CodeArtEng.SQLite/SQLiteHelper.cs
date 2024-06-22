@@ -11,6 +11,9 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization.Formatters;
 
+//ToDo: Write option - Write parent, child, child and parent.
+//ToDo: Create table from class.
+
 namespace CodeArtEng.SQLite
 {
     /// <summary>
@@ -142,7 +145,6 @@ namespace CodeArtEng.SQLite
             {
                 if (disposing)
                 {
-                    Command.Transaction.Dispose();
                     DisconnectDatabase();
                 }
                 disposedValue = true;
