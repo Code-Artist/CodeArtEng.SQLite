@@ -9,10 +9,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Serialization.Formatters;
 
-//ToDo: Write option - Write parent, child, child and parent.
-//ToDo: Create table from class.
+//ToDo: Read and Write Async
 
 namespace CodeArtEng.SQLite
 {
@@ -22,6 +20,7 @@ namespace CodeArtEng.SQLite
     public abstract partial class SQLiteHelper : IDisposable
     {
         #region [ Internal SQLite Objects ]
+
         private SQLiteCommand SqlCommand;
         private SQLiteCommand Command
         {
@@ -32,6 +31,8 @@ namespace CodeArtEng.SQLite
                 return SqlCommand;
             }
         }
+        private bool IsSQLTransaction => Command?.Transaction != null;
+
         #endregion
 
         #region [ SQLiteConnection and Settings ]
@@ -56,7 +57,6 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Keep database open until flag is cleared or <see cref="DisconnectDatabase"/> is called.
         /// </summary>
-
         [DefaultValue(false)]
         public bool KeepDatabaseOpen
         {
@@ -118,6 +118,8 @@ namespace CodeArtEng.SQLite
             return File.Exists(DatabaseFilePath);
         }
 
+        public SQLiteWriteOptions WriteOptions { get; set; } = new SQLiteWriteOptions();
+
         #endregion
 
         /// <summary>
@@ -171,7 +173,7 @@ namespace CodeArtEng.SQLite
         /// <param name="databaseFilePath"></param>
         /// <param name="readOnly"></param>
         /// <exception cref="ArgumentNullException"></exception>
-        protected virtual void SetSQLPath(string databaseFilePath, bool readOnly = false)
+        protected virtual void SetSQLPath(string databaseFilePath, bool readOnly = false, bool createFile = false)
         {
             KeepDatabaseOpen = false;
             DisconnectDatabase();
@@ -180,6 +182,11 @@ namespace CodeArtEng.SQLite
             DatabaseFilePath = databaseFilePath;
             if (string.IsNullOrEmpty(databaseFilePath)) throw new ArgumentNullException(nameof(databaseFilePath));
             ConnectString = @"Data Source=" + databaseFilePath + ";Version=3;";
+
+            if (!File.Exists(DatabaseFilePath) && createFile)
+            {
+                File.WriteAllBytes(DatabaseFilePath, new byte[0]);
+            }
 
             ReadOnly = readOnly;
             if (readOnly) ConnectString += "Read Only=True;";
@@ -404,18 +411,20 @@ namespace CodeArtEng.SQLite
 
         /// <summary>
         /// Clear all rows from selected table by table name.
+        /// Perform VACUUM if method is not called within SQL Transaction.
         /// </summary>
         /// <param name="tableName"></param>
         /// <exception cref="InvalidOperationException"></exception>
         protected void ClearTable(string tableName)
         {
-            VerifyTableExists(tableName);
+            if (!VerifyTableExists(tableName))
+                throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
             ExecuteNonQuery("DELETE FROM " + tableName);
-            CompactDatabase();
+            if (!IsSQLTransaction) CompactDatabase();
         }
 
         /// <summary>
-        /// Compress database.
+        /// Compress database. Do not execute this within SQL Transaction.
         /// </summary>
         protected void CompactDatabase() => ExecuteNonQuery("VACUUM");
 
@@ -476,11 +485,10 @@ namespace CodeArtEng.SQLite
         /// </summary>
         /// <param name="tableName"></param>
         /// <returns></returns>
-        protected void VerifyTableExists(string tableName)
+        private bool VerifyTableExists(string tableName)
         {
             Trace.WriteLine("Verify Table: " + tableName);
-            if (!GetTables().Contains(tableName, StringComparer.InvariantCultureIgnoreCase))
-                throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
+            return GetTables().Contains(tableName, StringComparer.InvariantCultureIgnoreCase);
         }
 
         #endregion
@@ -524,7 +532,14 @@ namespace CodeArtEng.SQLite
         {
             info.Validated = false;
 
-            VerifyTableExists(info.TableName);
+            if (!VerifyTableExists(info.TableName))
+            {
+                if (WriteOptions.CreateTable)
+                    CreateTable(info.TableType, info.TableName);
+                else
+                    throw new InvalidOperationException($"Table [{info.TableName}] not exists in database!");
+            }
+
             if (info.PrimaryKey != null) ValidatePrimaryKey(info);
 
             //Database Table may have more columns than .NET Object.
@@ -549,32 +564,17 @@ namespace CodeArtEng.SQLite
                     if (!column.Type.Equals("INTEGER"))
                         throw new FormatException(errHeaderDB + "Expecting INTEGER type for index column.");
                 }
-                else if (item.IsDataTypeDefined)
-                {
-                    if (item.DataType == SQLDataType.TEXT && !column.Type.Equals("TEXT"))
-                        throw new FormatException(errHeaderDB + "Type mismatched, expecting TEXT!");
-                    else if (item.DataType == SQLDataType.INTEGER && !column.Type.Equals("INTEGER"))
-                        throw new FormatException(errHeaderDB + "Type mismatched, expecting INTEGER!");
-                }
                 else
                 {
                     //Data Type Check, compare and verify data type between class and database declaration.
                     //Incorrect type declaration might not affect write operation but readback value will get affected.
-
-                    if ((typeof(int).IsAssignableFrom(itemType) ||
-                        typeof(long).IsAssignableFrom(itemType)
-                        ) && !column.Type.Equals("INTEGER"))
+                    if (item.DataType == SQLDataType.INTEGER && !column.Type.Equals("INTEGER"))
                         throw new FormatException(errHeaderDB + "Type mismatched, expecting INTEGER!");
 
-                    if ((itemType == typeof(string) ||
-                        itemType == typeof(DateTime) ||
-                        itemType == typeof(Enum)
-                        ) && !column.Type.Equals("TEXT"))
+                    if (item.DataType == SQLDataType.TEXT && !column.Type.Equals("TEXT"))
                         throw new FormatException(errHeaderDB + "Type mismatched, expecting TEXT!");
 
-                    if ((typeof(double).IsAssignableFrom(itemType) ||
-                        typeof(float).IsAssignableFrom(itemType)
-                        ) && !column.Type.Equals("REAL"))
+                    if (item.DataType == SQLDataType.REAL && !column.Type.Equals("REAL"))
                         throw new FormatException(errHeaderDB + "Type mismatched, expecting REAL!");
                 }
             }
@@ -600,7 +600,13 @@ namespace CodeArtEng.SQLite
             IndexTable result = IndexTables.FirstOrDefault(n => n.Name == tableName);
             if (result != null) return result;
 
-            VerifyTableExists(tableName);
+            if (!VerifyTableExists(tableName))
+            {
+                if (WriteOptions.CreateTable)
+                    CreateTable<IndexTableTemplate>(tableName);
+                else
+                    throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
+            }
             result = new IndexTable(tableName);
             IndexTables.Add(result);
             return result;
@@ -671,7 +677,7 @@ namespace CodeArtEng.SQLite
             string tableName = senderTable.TableName;
             SQLTableItem[] properties = senderTable.Columns;
             SQLTableItem primaryKey = senderTable.PrimaryKey;
-            if (primaryKey != null) properties = properties.Concat(new[] { primaryKey }).ToArray();
+            if (primaryKey != null) properties = properties.Append(primaryKey).ToArray();
 
             ////Table may have more columns than class.
             ////Ignore properties where name does not match with Table columns (Backward Compatible)
@@ -780,6 +786,10 @@ namespace CodeArtEng.SQLite
                 throw new InvalidOperationException($"Read Index Table failed for table {table.TableName}!", ex);
             }
         }
+
+        //ToDo: Write option - Write parent, child, child and parent.
+        //ToDo: Create table from class, create table if not exists.
+        //ToDo: Use default option if not specified.
         protected void WriteToDatabase<T>(params T[] senders) where T : class
         {
             WriteToDatabase(senders, string.Empty);
@@ -849,7 +859,7 @@ namespace CodeArtEng.SQLite
                 {
                     // Include primary keys in query if value is not 0
                     pKeyID = (int)primaryKey.Property.GetValue(item);
-                    if (pKeyID != 0) arguments = arguments.Concat(new[] { primaryKey }).ToArray();
+                    if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
                     else assignPrimaryKey = true;
                 }
 
@@ -994,6 +1004,53 @@ namespace CodeArtEng.SQLite
         private void RestorePrimaryDBPath(string dbPath)
         {
             if (!string.IsNullOrEmpty(dbPath)) SetSQLPath(dbPath);
+        }
+
+        #endregion
+
+        #region [ Create Table ]
+
+        protected string CreateTable(Type tableType, string tableName)
+        {
+            string createStatement = GetCreateStatement(tableType, tableName);
+            ExecuteNonQuery(createStatement);
+            return createStatement;
+        }
+
+        protected string CreateTable<T>(string tableName = null)
+        {
+            return CreateTable(typeof(T), tableName);
+        }
+
+        private string GetCreateStatement(Type tableType, string tableName = null)
+        {
+            SQLTableInfo ptrTable = TableInfos.FirstOrDefault(n => n.TableType == tableType);
+            if (ptrTable == null) ptrTable = new SQLTableInfo(tableType);
+
+            string paramList = string.Empty;
+            if (ptrTable.PrimaryKey != null)
+            {
+                paramList += GetCreateParam(ptrTable.PrimaryKey);
+            }
+            foreach (SQLTableItem t in ptrTable.Columns)
+            {
+                if (t.IsChildTable) continue;
+                paramList += GetCreateParam(t);
+            }
+
+            if (ptrTable.PrimaryKey != null)
+            {
+                paramList += $"PRIMARY KEY(\"{ptrTable.PrimaryKey.SQLName}\"),";
+            }
+
+            paramList = paramList.TrimEnd(',');
+            string result = $"CREATE TABLE \"{tableName}\" ({paramList})";
+            return result;
+        }
+
+        private string GetCreateParam(SQLTableItem item)
+        {
+            return $"\"{item.SQLName}\" {item.DataType},";
         }
 
         #endregion

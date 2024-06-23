@@ -125,9 +125,9 @@ namespace CodeArtEng.SQLite.Tests
     internal class SQLiteMockedDB : SQLiteHelper
     {
         Random r = new Random((int)DateTime.Now.Ticks);
-        public SQLiteMockedDB(string databaseFile, bool isReadOnly = false) : base()
+        public SQLiteMockedDB(string databaseFile, bool isReadOnly = false, bool createFile = true) : base()
         {
-            base.SetSQLPath(databaseFile, isReadOnly);
+            base.SetSQLPath(databaseFile, isReadOnly, createFile);
         }
 
         #region [ Base Forward Methods ]
@@ -156,6 +156,7 @@ namespace CodeArtEng.SQLite.Tests
         }
 
         public new void ClearTable(string tableName) => base.ClearTable(tableName);
+        public new string CreateTable<T>(string tableName = null) => base.CreateTable<T>(tableName);
 
         #endregion
 

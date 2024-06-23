@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Data.SqlTypes;
 using System.Diagnostics;
@@ -27,17 +28,12 @@ namespace CodeArtEng.SQLite.Tests
     internal class SQLiteHelperTests
     {
         private readonly SQLiteMockedDB DB;
+        private string TestDBPath = "TestDB.db";
 
         public SQLiteHelperTests()
         {
-            DB = new SQLiteMockedDB("TestDB.db");
-        }
-
-        [Test]
-        public void TestDispose()
-        {
-            SQLiteMockedDB temp = new SQLiteMockedDB("dummy.db");
-            temp.Dispose();
+            if (File.Exists(TestDBPath)) { File.Delete(TestDBPath); }
+            DB = new SQLiteMockedDB(TestDBPath);
         }
 
         #region [ Status Check ]
@@ -65,7 +61,7 @@ namespace CodeArtEng.SQLite.Tests
         [Test, Order(0)]
         public void DummyDatabaseOffline_FileNotExists()
         {
-            SQLiteMockedDB db = new SQLiteMockedDB("Dummy.db");
+            SQLiteMockedDB db = new SQLiteMockedDB("Dummy.db", createFile: false);
             Assert.That(db.IsDatabaseOnline(), Is.False);
         }
 
@@ -301,9 +297,13 @@ namespace CodeArtEng.SQLite.Tests
 
         #endregion
 
+        #region [ 4 - Database Lock ]
+
         [Test]
         public void SimulateLockedDatabase()
         {
+            DB.WriteMiscKey("Dummy"); //Ensure table is created.
+
             //Simulate lock database for 2 seconds.
             Task t = new Task(LockDatabase);
             t.Start();
@@ -343,5 +343,20 @@ namespace CodeArtEng.SQLite.Tests
                 System.Threading.Thread.Sleep(2000);
             });
         }
+
+        #endregion
+
+        #region [ 5 - Create Table ]
+
+        [Test]
+        public void CreateTableWithPrimaryKey()
+        {
+            string createStatement = "CREATE TABLE \"C_TableWithPrimaryKey\" (\"ID\" INTEGER,\"Name\" TEXT,\"Time\" TEXT,\"TimeAsTicks\" INTEGER,\"Integer\" INTEGER,\"Double\" REAL,\"Flag\" INTEGER,\"OptionAsString\" TEXT,\"OptionAsNumber\" INTEGER,\"TextID\" INTEGER,PRIMARY KEY(\"ID\"))";
+            string genCreateStatement = DB.CreateTable<TableWithPrimaryKey>("C_TableWithPrimaryKey");
+            Assert.That(genCreateStatement, Is.EqualTo(createStatement));
+            Assert.That(DB.GetTables().Contains("C_TableWithPrimaryKey"));
+        }
+
+        #endregion
     }
 }

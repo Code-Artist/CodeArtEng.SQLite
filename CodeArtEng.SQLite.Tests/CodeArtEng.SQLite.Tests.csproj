@@ -60,6 +60,9 @@
     <Compile Include="..\CodeArtEng.SQLite\SQLTableInfo.cs">
       <Link>SQLTableInfo.cs</Link>
     </Compile>
+    <Compile Include="..\CodeArtEng.SQLite\SQLTableItem.cs">
+      <Link>SQLTableItem.cs</Link>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SQLiteDatabaseHandlerMocked.cs" />
     <Compile Include="SQLiteHandlerTests.cs" />
@@ -69,12 +72,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <Content Include="TestDB.db">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Include="TestDB.db" />
     <Content Include="TestSubTable.db">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="TestRemoteDB.db">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CodeArtEng.SQLite\CodeArtEng.SQLite.csproj">

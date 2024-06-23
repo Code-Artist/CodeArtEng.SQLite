@@ -81,7 +81,7 @@ namespace CodeArtEng.SQLite
         protected void SwitchToRemoteDatabase(bool readOnly = false)
         {
             DisconnectDatabase();
-            SetSQLPath(DatabaseFilePath, readOnly);
+            SetSQLPath(DatabaseFilePath, readOnly); 
             IsLocalSyncActive = false;
         }
 

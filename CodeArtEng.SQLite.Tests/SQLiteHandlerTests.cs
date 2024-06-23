@@ -10,7 +10,7 @@ namespace CodeArtEng.SQLite.Tests
     internal class SQLiteHandlerTests
     {
         private readonly string dummyRemotePath = "NoSuchTable.db";
-        private readonly string remoteDBPath = "TestDB.db";
+        private readonly string remoteDBPath = "TestRemoteDB.db";
         private readonly string localDBPath = "LocalTestDB.db";
 
         private void ClearLocalDB()
@@ -42,7 +42,7 @@ namespace CodeArtEng.SQLite.Tests
         }
 
         [Test]
-        public void ConnectRemoteDB_NotExists_DataabseOffline()
+        public void ConnectRemoteDB_NotExists_DatabaseOffline()
         {
             SQLiteDatabaseHandlerMocked DB = new SQLiteDatabaseHandlerMocked(dummyRemotePath);
             Assert.That(DB.IsDatabaseOnline, Is.False);

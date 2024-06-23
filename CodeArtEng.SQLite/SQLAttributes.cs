@@ -49,7 +49,8 @@ namespace CodeArtEng.SQLite
     public enum SQLDataType
     {
         TEXT,
-        INTEGER
+        INTEGER,
+        REAL
     }
 
     /// <summary>
