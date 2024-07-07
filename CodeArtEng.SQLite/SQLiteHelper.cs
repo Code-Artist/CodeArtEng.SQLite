@@ -593,23 +593,35 @@ namespace CodeArtEng.SQLite
             return true;
         }
 
-        private readonly List<IndexTable> IndexTables = new List<IndexTable>();
-        private IndexTable GetIndexTable(string tableName)
+        private readonly List<IndexTableHandler> IndexTables = new List<IndexTableHandler>();
+        private IndexTableHandler GetIndexTable(string tableName)
         {
             if (string.IsNullOrEmpty(tableName)) throw new ArgumentNullException("tableName");
-            IndexTable result = IndexTables.FirstOrDefault(n => n.Name == tableName);
+            IndexTableHandler result = IndexTables.FirstOrDefault(n => n.Name == tableName);
             if (result != null) return result;
 
             if (!VerifyTableExists(tableName))
             {
                 if (WriteOptions.CreateTable)
-                    CreateTable<IndexTableTemplate>(tableName);
+                    CreateTable<IndexTable>(tableName);
                 else
                     throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
             }
-            result = new IndexTable(tableName);
+            result = new IndexTableHandler(tableName);
             IndexTables.Add(result);
             return result;
+        }
+
+        /// <summary>
+        /// Return contents for index table by table name.
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <returns></returns>
+        protected IndexTable[] IndexTable(string tableName)
+        {
+            IndexTableHandler table = IndexTables.FirstOrDefault(n => n.Name == tableName);
+            if (table == null) throw new NullReferenceException($"Table {tableName} not exists / not valid index table!");
+            return table.Items.Union(table.NewItems).ToArray();
         }
 
         private void ValidatePrimaryKey(SQLTableInfo sqlTable)
@@ -712,7 +724,7 @@ namespace CodeArtEng.SQLite
             //Assign value to index key property (SQLIndex)
             foreach (SQLTableItem i in senderTable.IndexKeys)
             {
-                IndexTable indexTable = GetIndexTable(i.IndexTableName);
+                IndexTableHandler indexTable = GetIndexTable(i.IndexTableName);
                 foreach (var r in results)
                 {
                     string value = indexTable.GetValueById(Convert.ToInt32(i.Property.GetValue(r)));
@@ -761,7 +773,7 @@ namespace CodeArtEng.SQLite
                 if (table.IndexKeys.Length == 0) return;
                 foreach (SQLTableItem p in table.IndexKeys)
                 {
-                    IndexTable tb = GetIndexTable(p.IndexTableName);
+                    IndexTableHandler tb = GetIndexTable(p.IndexTableName);
                     if (tb.LastReadID == ReadOpID) continue;
                     tb.LastReadID = ReadOpID;
 
@@ -771,7 +783,7 @@ namespace CodeArtEng.SQLite
                     {
                         while (r.Read())
                         {
-                            IndexTableItem t = new IndexTableItem()
+                            IndexTable t = new IndexTable()
                             {
                                 ID = r.GetInt32(0),
                                 Name = r.GetStringEx(1)
@@ -788,8 +800,6 @@ namespace CodeArtEng.SQLite
         }
 
         //ToDo: Write option - Write parent, child, child and parent.
-        //ToDo: Create table from class, create table if not exists.
-        //ToDo: Use default option if not specified.
         protected void WriteToDatabase<T>(params T[] senders) where T : class
         {
             WriteToDatabase(senders, string.Empty);
@@ -814,11 +824,11 @@ namespace CodeArtEng.SQLite
                 WriteToDatabaseInt(senderTable, senders);
 
                 //update index table with new items.
-                foreach (IndexTable i in IndexTables)
+                foreach (IndexTableHandler i in IndexTables)
                 {
                     if (i.NewItems.Count == 0) continue;
                     string query = $"INSERT OR REPLACE INTO {i.Name} (ID, Name) VALUES (@ID, @Name)";
-                    foreach (IndexTableItem m in i.NewItems)
+                    foreach (IndexTable m in i.NewItems)
                     {
                         Command.Parameters.Clear();
                         Command.Parameters.AddWithValue("@ID", m.ID);
@@ -875,7 +885,7 @@ namespace CodeArtEng.SQLite
                 //Replace value for property marked as SQLIndex with id.
                 foreach (SQLTableItem i in senderTable.IndexKeys)
                 {
-                    IndexTable indexTable = GetIndexTable(i.IndexTableName);
+                    IndexTableHandler indexTable = GetIndexTable(i.IndexTableName);
                     string value = i.Property.GetValue(item)?.ToString();
                     if (string.IsNullOrEmpty(value))
                     {
@@ -1026,6 +1036,7 @@ namespace CodeArtEng.SQLite
         {
             SQLTableInfo ptrTable = TableInfos.FirstOrDefault(n => n.TableType == tableType);
             if (ptrTable == null) ptrTable = new SQLTableInfo(tableType);
+            if (string.IsNullOrEmpty(tableName)) tableName = ptrTable.TableName;
 
             string paramList = string.Empty;
             if (ptrTable.PrimaryKey != null)
@@ -1043,14 +1054,24 @@ namespace CodeArtEng.SQLite
                 paramList += $"PRIMARY KEY(\"{ptrTable.PrimaryKey.SQLName}\"),";
             }
 
+            //Select columns defined with SQLUniqueMultiColumns attribute
+            string[] uniqueMultiColumns = ptrTable.Columns.Where(
+                    n => Attribute.IsDefined(n.Property,
+                    typeof(SQLUniqueMultiColumnAttribute)))
+                    .Select(n => n.SQLName).ToArray();
+            if (uniqueMultiColumns.Length > 0)
+            {
+                paramList += $"UNIQUE({string.Join(",", uniqueMultiColumns.Select(n => "\"" + n + "\""))})";
+            }
             paramList = paramList.TrimEnd(',');
+
             string result = $"CREATE TABLE \"{tableName}\" ({paramList})";
             return result;
         }
 
         private string GetCreateParam(SQLTableItem item)
         {
-            return $"\"{item.SQLName}\" {item.DataType},";
+            return $"\"{item.SQLName}\" {item.DataType}{(item.IsUniqueColumn ? " UNIQUE" : "")},";
         }
 
         #endregion

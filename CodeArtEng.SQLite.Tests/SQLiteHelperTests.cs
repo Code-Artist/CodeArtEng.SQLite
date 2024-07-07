@@ -189,6 +189,13 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(Readback.Length == TbLength);
         }
 
+        [Test, Order(16)]
+        public void PK_ReadIndexTable()
+        {
+            IndexTable[] indexTable = DB.IndexTable("TextAsID");
+            Assert.That(indexTable.Length, Is.EqualTo(100));
+        }
+
         #endregion
 
         #region [ 2 - Parent and Child Table ]
@@ -356,6 +363,47 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(genCreateStatement, Is.EqualTo(createStatement));
             Assert.That(DB.GetTables().Contains("C_TableWithPrimaryKey"));
         }
+
+        #endregion
+
+        #region [ 6 - Index Table, Unique Items ]
+
+        [Test]
+        public void AddUniqueItems()
+        {
+            string tableName = "ID_01";
+            List<IndexTable> Items = new List<IndexTable>();
+            for (int x = 0; x < 10; x++)
+            {
+                Items.Add(new IndexTable() { Name = x.ToString() });
+            }
+            DB.WriteIndexTableToDB(tableName, Items.ToArray());
+            List<IndexTable> readBack = DB.ReadIndexTableFromDB(tableName).ToList();
+            Assert.That(readBack.Count, Is.EqualTo(10));
+
+            readBack.Add(new IndexTable() { Name = "1" });
+            DB.WriteIndexTableToDB(tableName, readBack.ToArray());
+            readBack = DB.ReadIndexTableFromDB(tableName).ToList();
+            Assert.That(readBack.Count, Is.EqualTo(10));
+        }
+
+        class MultiUniqueColTable
+        {
+            [SQLUniqueMultiColumn]
+            public string Name { get; set; }
+            [SQLUniqueMultiColumn]
+            public string Value { get; set; }
+            [SQLUniqueMultiColumn]
+            public string Station { get; set; }
+        }
+
+
+        [Test]
+        public void CreateMultiUniqueColumnTable()
+        {
+            DB.CreateTable<MultiUniqueColTable>();
+        }
+
 
         #endregion
     }

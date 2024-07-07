@@ -158,6 +158,8 @@ namespace CodeArtEng.SQLite.Tests
         public new void ClearTable(string tableName) => base.ClearTable(tableName);
         public new string CreateTable<T>(string tableName = null) => base.CreateTable<T>(tableName);
 
+        public new IndexTable[] IndexTable(string tableName) => base.IndexTable(tableName);
+
         #endregion
 
         public string GenerateString(int length)
@@ -265,6 +267,8 @@ namespace CodeArtEng.SQLite.Tests
             WriteToDatabase(t);
         }
 
+        #region [ Split Table ]
+
         public SplitTable[] WriteSplitTable(int length)
         {
             List<SplitTable> results = new List<SplitTable>();
@@ -285,10 +289,25 @@ namespace CodeArtEng.SQLite.Tests
             WriteToDatabase(results.ToArray());
             return results.ToArray();
         }
-
         public SplitTable[] ReadSplitTable()
         {
             return ReadFromDatabase<SplitTable>().ToArray();
         }
+
+        #endregion
+
+        #region [ Index Table ]
+
+        public IndexTable[] ReadIndexTableFromDB(string tableName)
+        {
+            return ReadFromDatabase<IndexTable>(tableName: tableName).ToArray();
+        }
+
+        public void WriteIndexTableToDB(string tableName, IndexTable[] items)
+        {
+            WriteToDatabase(items, tableName);
+        }
+
+        #endregion
     }
 }

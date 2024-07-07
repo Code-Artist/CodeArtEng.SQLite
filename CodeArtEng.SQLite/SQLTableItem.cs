@@ -68,6 +68,11 @@ namespace CodeArtEng.SQLite
         /// </summary>
         internal SQLTableInfo ChildTableInfo { get; private set; }
 
+        /// <summary>
+        /// Define if column is unique. Set by <see cref="SQLUniqueAttribute"/>
+        /// </summary>
+        public bool IsUniqueColumn { get; private set; } = false;
+
 
         MethodInfo SetterMethod, GetterMethod;
         /// <summary>
@@ -90,6 +95,10 @@ namespace CodeArtEng.SQLite
             {
                 SQLName = (Attribute.GetCustomAttribute(property, typeof(SQLNameAttribute))
                             as SQLNameAttribute)?.Name;
+            }
+            if (Attribute.IsDefined(property, typeof(SQLUniqueAttribute)))
+            {
+                IsUniqueColumn = true;
             }
 
             if (Attribute.IsDefined(Property, typeof(ParentKeyAttribute)))

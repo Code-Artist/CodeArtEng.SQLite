@@ -74,4 +74,15 @@ namespace CodeArtEng.SQLite
         public SQLDatabseAttribute(string databaseFile) => DatabaseFilePath = databaseFile;
     }
 
+    /// <summary>
+    /// Mark column as unique, add unique keyword to column when create table.
+    /// </summary>
+    public class SQLUniqueAttribute : Attribute { }
+
+    /// <summary>
+    /// Define multi columns unique constraints.
+    /// Example: UNIQUE ("ColA", "ColB" ... )
+    /// </summary>
+    public class SQLUniqueMultiColumnAttribute: Attribute { }  
+
 }

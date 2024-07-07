@@ -2,14 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <Version>1.9.0</Version>
+    <Version>1.10.0</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Copyright>Copyright ©  Code Art Enginnering 2024</Copyright>
     <PackageProjectUrl>www.codearteng.com</PackageProjectUrl>
     <PackageIcon>CAELogoSmall.png</PackageIcon>
-    <PackageReleaseNotes>Update package handling.
-Add params keyword to WriteToDatabase method.</PackageReleaseNotes>
+    <PackageReleaseNotes>Added attribute SQLUnique, SQLUniqueMultiColumn</PackageReleaseNotes>
     <PackAsTool>False</PackAsTool>
+    <RepositoryUrl>https://github.com/Code-Artist/CodeArtEng.SQLite</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +25,10 @@ Add params keyword to WriteToDatabase method.</PackageReleaseNotes>
 
   <ItemGroup>
     <None Include="..\..\CAELogoSmall.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
