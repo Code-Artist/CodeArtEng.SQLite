@@ -281,6 +281,19 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(DB.ParentTableCountChildItems() == ParentTableChildItems);
         }
 
+
+        [Test, Order(25)]
+        public void WriteBadParentTable()
+        {
+            Assert.Throws<FormatException>(() => { DB.WriteBadParentTable(); });
+        }
+
+        [Test, Order(26)]
+        public void WriteParentTableEmptyChildList()
+        {
+            DB.WriteParentTableEmptyChildrens();
+        }
+
         #endregion
 
         #region [ 3 - Split Tables Test ]
@@ -355,7 +368,15 @@ namespace CodeArtEng.SQLite.Tests
 
         #region [ 5 - Create Table ]
 
-        [Test]
+        [Test,Order(50)]
+        public void ReadFromNonExistingTable()
+        {
+            //ToDo: Fail when table not found during read opoeration
+            SQLiteMockedDB dbReadonly = new SQLiteMockedDB(TestDBPath, isReadOnly: true, createFile: true);
+            dbReadonly.ReadFromTableWithPrimaryKey("C_TableWithPrimaryKey");
+        }
+
+        [Test, Order(51)]
         public void CreateTableWithPrimaryKey()
         {
             string createStatement = "CREATE TABLE \"C_TableWithPrimaryKey\" (\"ID\" INTEGER,\"Name\" TEXT,\"Time\" TEXT,\"TimeAsTicks\" INTEGER,\"Integer\" INTEGER,\"Double\" REAL,\"Flag\" INTEGER,\"OptionAsString\" TEXT,\"OptionAsNumber\" INTEGER,\"TextID\" INTEGER,PRIMARY KEY(\"ID\"))";

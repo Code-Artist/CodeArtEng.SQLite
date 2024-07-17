@@ -2,12 +2,12 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <Version>1.10.0</Version>
+    <Version>1.12.0</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Copyright>Copyright ©  Code Art Enginnering 2024</Copyright>
     <PackageProjectUrl>www.codearteng.com</PackageProjectUrl>
     <PackageIcon>CAELogoSmall.png</PackageIcon>
-    <PackageReleaseNotes>Added attribute SQLUnique, SQLUniqueMultiColumn</PackageReleaseNotes>
+    <PackageReleaseNotes>Bug fixes.</PackageReleaseNotes>
     <PackAsTool>False</PackAsTool>
     <RepositoryUrl>https://github.com/Code-Artist/CodeArtEng.SQLite</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

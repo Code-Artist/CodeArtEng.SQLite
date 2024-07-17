@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using NUnit.Framework;
 
 namespace CodeArtEng.SQLite.Tests
 {
@@ -112,6 +113,18 @@ namespace CodeArtEng.SQLite.Tests
         public int ParentID { get; set; }
         public int Value { get; set; }
     }
+
+    public class BadParentTable
+    {
+        [PrimaryKey]
+        public int ID { get; set; }
+        public List<ChildTableMissingParentKey> Childs { get; set; }
+    }
+    public class ChildTableMissingParentKey
+    {
+        public string Value { get; set; }
+    }
+
     #endregion
 
     /// <summary>
@@ -157,7 +170,6 @@ namespace CodeArtEng.SQLite.Tests
 
         public new void ClearTable(string tableName) => base.ClearTable(tableName);
         public new string CreateTable<T>(string tableName = null) => base.CreateTable<T>(tableName);
-
         public new IndexTable[] IndexTable(string tableName) => base.IndexTable(tableName);
 
         #endregion
@@ -196,6 +208,11 @@ namespace CodeArtEng.SQLite.Tests
             return results.ToArray();
         }
 
+        public TableWithPrimaryKey[] ReadFromTableWithPrimaryKey(string tbName)
+        {
+            return ReadFromDatabase<TableWithPrimaryKey>(tableName: tbName)?.ToArray();
+        }
+
         public TableWithPrimaryKey[] ReadTableWithPrimaryKey()
         {
             TableWithPrimaryKey[] results = ReadFromDatabase<TableWithPrimaryKey>().ToArray();
@@ -215,6 +232,13 @@ namespace CodeArtEng.SQLite.Tests
         #endregion
 
         #region [ Parent Child Table ]
+
+        public void WriteParentTableEmptyChildrens()
+        {
+            ParentTable t = new ParentTable() { Name = "Table with Empty Child" };
+            t.ChildItems = null;
+            WriteToDatabase(t);
+        }
 
         public ParentTable[] WriteParentTable(int length, int maxChildLength)
         {
@@ -257,6 +281,15 @@ namespace CodeArtEng.SQLite.Tests
         public int ParentTableCountChildItems()
         {
             return ReadFromDatabase<ChildTable>(tableName: "ChildItems").Count;
+        }
+
+        public void WriteBadParentTable()
+        {
+            WriteToDatabase(new BadParentTable()
+            {
+                Childs = new List<ChildTableMissingParentKey>() {
+                    new ChildTableMissingParentKey() { Value ="Test"} }
+            });
         }
 
         #endregion

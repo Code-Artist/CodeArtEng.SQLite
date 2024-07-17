@@ -534,8 +534,10 @@ namespace CodeArtEng.SQLite
 
             if (!VerifyTableExists(info.TableName))
             {
-                if (WriteOptions.CreateTable)
+                if (WriteOptions.CreateTable && !ReadOnly)
                     CreateTable(info.TableType, info.TableName);
+                else if (ReadOnly) //Database is readonly, table not exist, skip validation
+                    return false;
                 else
                     throw new InvalidOperationException($"Table [{info.TableName}] not exists in database!");
             }
@@ -663,8 +665,7 @@ namespace CodeArtEng.SQLite
             try
             {
                 SQLTableInfo senderTable = GetTableInfo(typeof(T), tableName);
-                //Override table name if explicitly specified as input
-                if (!string.IsNullOrEmpty(tableName)) senderTable.TableName = tableName;
+                if (!senderTable.Validated) return null;
                 return ReadFromDatabaseInt<T>(senderTable, whereStatement);
             }
             finally
@@ -925,10 +926,13 @@ namespace CodeArtEng.SQLite
                     //Assign parent id to parent key
                     IList childs = t.Property.GetValue(item) as IList;
                     List<object> childList = new List<object>();
-                    foreach (object c in childs)
+                    if (childs != null)
                     {
-                        childTableInfo.ParentKey.Property.SetValue(c, pKeyID);
-                        childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
+                        foreach (object c in childs)
+                        {
+                            childTableInfo.ParentKey.Property.SetValue(c, pKeyID);
+                            childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
+                        }
                     }
 
                     string dbBackup = SetSecondaryDBPath(t);
@@ -937,7 +941,7 @@ namespace CodeArtEng.SQLite
                         //When updating existing items, delete existing child items before writing updated one.
                         DeleteChildItemsByParentID(childTableInfo, pKeyID);
                         //Recusive write to child table items.
-                        WriteToDatabaseInt(childTableInfo, childList.ToArray());
+                        if (childList.Count > 0) WriteToDatabaseInt(childTableInfo, childList.ToArray());
                     }
                     finally { RestorePrimaryDBPath(dbBackup); }
                 }
