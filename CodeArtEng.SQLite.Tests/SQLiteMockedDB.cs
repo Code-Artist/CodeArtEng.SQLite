@@ -23,6 +23,7 @@ namespace CodeArtEng.SQLite.Tests
     {
         [PrimaryKey]
         public int ID { get; set; }
+        [SQLUnique]
         public string Name { get; set; }
         public DateTime Time { get; set; }
         [SQLDataType(SQLDataType.INTEGER)]

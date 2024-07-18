@@ -604,8 +604,10 @@ namespace CodeArtEng.SQLite
 
             if (!VerifyTableExists(tableName))
             {
-                if (WriteOptions.CreateTable)
+                if (WriteOptions.CreateTable && !ReadOnly)
                     CreateTable<IndexTable>(tableName);
+                else if (ReadOnly)
+                    return null; //Database is readonly, table not exists, return nuothing.
                 else
                     throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
             }
@@ -726,6 +728,7 @@ namespace CodeArtEng.SQLite
             foreach (SQLTableItem i in senderTable.IndexKeys)
             {
                 IndexTableHandler indexTable = GetIndexTable(i.IndexTableName);
+                if (indexTable == null) throw new Exception($"Index table {i.IndexTableName} not exists in database!");
                 foreach (var r in results)
                 {
                     string value = indexTable.GetValueById(Convert.ToInt32(i.Property.GetValue(r)));
@@ -775,6 +778,7 @@ namespace CodeArtEng.SQLite
                 foreach (SQLTableItem p in table.IndexKeys)
                 {
                     IndexTableHandler tb = GetIndexTable(p.IndexTableName);
+                    if (tb == null) continue;
                     if (tb.LastReadID == ReadOpID) continue;
                     tb.LastReadID = ReadOpID;
 

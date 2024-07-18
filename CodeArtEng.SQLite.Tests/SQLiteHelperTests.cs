@@ -120,8 +120,21 @@ namespace CodeArtEng.SQLite.Tests
         TableWithPrimaryKey[] Source, Readback;
 
         [Test, Order(10)]
+        public void PK_ReadTableNotExists()
+        {
+            //Read table which is not exists in database, should not fail
+            Readback = DB.ReadTableWithPrimaryKey();
+            Assert.That(Readback.Length, Is.EqualTo(0));
+
+            //Read non
+            Assert.That(DB.ReadIndexTableFromDB("TextAsID").Length, Is.EqualTo(0));
+        }
+
+
+        [Test, Order(11)]
         public void PK_WriteTableWithPrimaryKey()
         {
+
             Source = DB.WriteTableWithPrimaryKey(TbLength);
             Assert.That(Source.Length, Is.EqualTo(TbLength));
 
@@ -130,14 +143,14 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(Source.Select(n => n.ID).Distinct().Count() == TbLength);
         }
 
-        [Test, Order(11)]
+        [Test, Order(12)]
         public void PK_ReadTableWithPrimaryKey()
         {
             Readback = DB.ReadTableWithPrimaryKey();
             Assert.That(Readback.Length, Is.EqualTo(TbLength));
         }
 
-        [Test, Order(12)]
+        [Test, Order(13)]
         public void PK_CompareTableWithPrimaryKey()
         {
             foreach (TableWithPrimaryKey r in Readback)
@@ -148,7 +161,7 @@ namespace CodeArtEng.SQLite.Tests
             }
         }
 
-        [Test, Order(13)]
+        [Test, Order(14)]
         public void PK_ModifyExistingItemsValue()
         {
             List<TableWithPrimaryKey> items = new List<TableWithPrimaryKey>();
@@ -168,7 +181,7 @@ namespace CodeArtEng.SQLite.Tests
             }
         }
 
-        [Test, Order(14)]
+        [Test, Order(15)]
         public void PK_RemoveItemsFromList()
         {
             TableWithPrimaryKey itemToDelete = Source[8];
@@ -178,7 +191,7 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(readBackItems.FirstOrDefault(n => n.ID == itemToDelete.ID) == null);
         }
 
-        [Test, Order(15)]
+        [Test, Order(16)]
         public void PK_AddNewItems()
         {
             TableWithPrimaryKey newItem = new TableWithPrimaryKey() { Name = "NewItem" };
@@ -189,7 +202,7 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(Readback.Length == TbLength);
         }
 
-        [Test, Order(16)]
+        [Test, Order(17)]
         public void PK_ReadIndexTable()
         {
             IndexTable[] indexTable = DB.IndexTable("TextAsID");

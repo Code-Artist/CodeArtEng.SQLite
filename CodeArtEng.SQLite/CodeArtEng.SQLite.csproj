@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <Version>1.12.0</Version>
+    <Version>1.12.1</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Copyright>Copyright ©  Code Art Enginnering 2024</Copyright>
     <PackageProjectUrl>www.codearteng.com</PackageProjectUrl>
@@ -12,6 +12,7 @@
     <RepositoryUrl>https://github.com/Code-Artist/CodeArtEng.SQLite</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>sqlite, database</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
