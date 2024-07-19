@@ -386,13 +386,13 @@ namespace CodeArtEng.SQLite.Tests
         {
             //ToDo: Fail when table not found during read opoeration
             SQLiteMockedDB dbReadonly = new SQLiteMockedDB(TestDBPath, isReadOnly: true, createFile: true);
-            dbReadonly.ReadFromTableWithPrimaryKey("C_TableWithPrimaryKey");
+            dbReadonly.ReadFromTableWithPrimaryKey("C_TableWithPrimaryKey2");
         }
 
         [Test, Order(51)]
         public void CreateTableWithPrimaryKey()
         {
-            string createStatement = "CREATE TABLE \"C_TableWithPrimaryKey\" (\"ID\" INTEGER,\"Name\" TEXT,\"Time\" TEXT,\"TimeAsTicks\" INTEGER,\"Integer\" INTEGER,\"Double\" REAL,\"Flag\" INTEGER,\"OptionAsString\" TEXT,\"OptionAsNumber\" INTEGER,\"TextID\" INTEGER,PRIMARY KEY(\"ID\"))";
+            string createStatement = "CREATE TABLE \"C_TableWithPrimaryKey\" (\"ID\" INTEGER,\"Name\" TEXT UNIQUE,\"Time\" TEXT,\"TimeAsTicks\" INTEGER,\"Integer\" INTEGER,\"Double\" REAL,\"Flag\" INTEGER,\"OptionAsString\" TEXT,\"OptionAsNumber\" INTEGER,\"TextID\" INTEGER,PRIMARY KEY(\"ID\"))";
             string genCreateStatement = DB.CreateTable<TableWithPrimaryKey>("C_TableWithPrimaryKey");
             Assert.That(genCreateStatement, Is.EqualTo(createStatement));
             Assert.That(DB.GetTables().Contains("C_TableWithPrimaryKey"));
@@ -402,7 +402,7 @@ namespace CodeArtEng.SQLite.Tests
 
         #region [ 6 - Index Table, Unique Items ]
 
-        [Test]
+        [Test, Order(60)]
         public void AddUniqueItems()
         {
             string tableName = "ID_01";

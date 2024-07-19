@@ -6,6 +6,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Data.SQLite;
 using System.Diagnostics;
+using System.Diagnostics.SymbolStore;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -49,7 +50,7 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Database connection string for readonly access, internal used to optimize read operation without locking.
         /// </summary>
-        protected string ConnectStringReadOnly => ReadOnly ? ConnectString : ConnectString + "Read Only=True;";
+        protected string ConnectStringReadOnly { get; private set; } = string.Empty;
         /// <summary>
         /// Databse file full path. Execute <see cref="SetSQLPath(string, bool)"/> to change.
         /// </summary>
@@ -117,6 +118,7 @@ namespace CodeArtEng.SQLite
             if (string.IsNullOrEmpty(DatabaseFilePath)) return false;
             return File.Exists(DatabaseFilePath);
         }
+        public bool IsDatabaseReadOnly => DBConnection.ConnectionString.Contains("Read Only=True");
 
         public SQLiteWriteOptions WriteOptions { get; set; } = new SQLiteWriteOptions();
 
@@ -189,7 +191,8 @@ namespace CodeArtEng.SQLite
             }
 
             ReadOnly = readOnly;
-            if (readOnly) ConnectString += "Read Only=True;";
+            if(ReadOnly) ConnectString += "Read Only=True;";
+            ConnectStringReadOnly = ConnectString + "Read Only=True;";
             DBConnection.ConnectionString = ConnectString;
         }
 
@@ -212,6 +215,7 @@ namespace CodeArtEng.SQLite
         private void ConnectRead()
         {
             if (IsConnected) return;
+            ReadOnly = true;
             DBConnection.ConnectionString = ConnectStringReadOnly;
             ConnectInt();
         }
@@ -517,7 +521,7 @@ namespace CodeArtEng.SQLite
         /// <returns></returns>
         private SQLTableInfo GetTableInfo(Type sender, string tableName = null)
         {
-            SQLTableInfo result = TableInfos.FirstOrDefault(n => n.TableType == sender);
+            SQLTableInfo result = TableInfos.FirstOrDefault(n => n.TableType == sender && n.Name == tableName);
             if (result != null) return result;
 
             //Create entry, verify table exist
@@ -534,9 +538,9 @@ namespace CodeArtEng.SQLite
 
             if (!VerifyTableExists(info.TableName))
             {
-                if (WriteOptions.CreateTable && !ReadOnly)
+                if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
                     CreateTable(info.TableType, info.TableName);
-                else if (ReadOnly) //Database is readonly, table not exist, skip validation
+                else if (IsDatabaseReadOnly) //Database is readonly, table not exist, skip validation
                     return false;
                 else
                     throw new InvalidOperationException($"Table [{info.TableName}] not exists in database!");
@@ -604,9 +608,9 @@ namespace CodeArtEng.SQLite
 
             if (!VerifyTableExists(tableName))
             {
-                if (WriteOptions.CreateTable && !ReadOnly)
+                if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
                     CreateTable<IndexTable>(tableName);
-                else if (ReadOnly)
+                else if (IsDatabaseReadOnly)
                     return null; //Database is readonly, table not exists, return nuothing.
                 else
                     throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
