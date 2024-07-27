@@ -255,7 +255,7 @@ public class Employee
 ### Parent and Child Tables
 Let's examine the example provided: In database, `Department` (Table Name: Department) serves as a parent table, and `List<Employee>` (Table Name: Employees) functions as a child table with a one-to-many relationship, where each department can be associated with multiple employees. In other words, for every single entry in the `Department` table, there can be several corresponding entries in the `Employee` table, each representing an individual employee belonging to that department, while each `Employee` is assigned to only one `Department`.
 
-Child table must have a properties ID declared with `ParentKey` attribute which function as mapping between child and parent table. Value of `DepartmentID` in example below is assigned by SQLite Helper. `PrimaryKey` is optional depends on need of the design.
+Child table must have a properties ID declared with `ParentKey` attribute which function as mapping between child and parent table. Value of `DepartmentID` in example below is assigned by SQLite Helper. `PrimaryKey` for class class `Department` is mandatory while it is optional for class `Employee` depends on need of the design.
 
 A child table must have an ID property, decorated with `ParentKey` attribute, which serves as the link between  child and parent table. In the example below, parent key value `DepartmentID` is assigned by SQLite Helper.
 
