@@ -37,6 +37,10 @@ namespace CodeArtEng.SQLite
         /// Read from last modified time when first connected.
         /// </summary>
         protected DateTime LastUpdate { get; private set; } = new DateTime();
+        /// <summary>
+        /// Temporary suspend sync between remote and local database.
+        /// </summary>
+        protected bool SuspendLocalSync { get; set; } = false;
 
         #endregion
 
@@ -104,16 +108,12 @@ namespace CodeArtEng.SQLite
         /// </summary>
         protected override void Connect()
         {
-            if (IsLocalSyncActive)
+            if (IsConnected) return; //Avoid reconnect keep alive database.
+            if (IsLocalSyncActive && !SuspendLocalSync)
             {
-                if (IsConnected) return; //Avoid reconnect keep alive database.
-
-                //if remote databse offline, swtich to local database
-                bool online = IsRemoteDatabaseOnline();
-
                 //Check last sync time and sync database.
                 double lastSync = (DateTime.Now - LastUpdate).TotalMinutes;
-                if (online)
+                if (IsRemoteDatabaseOnline())
                 {
                     //Database online, sync at defined interval
                     if (lastSync > UpdateIntervalMinutes)

@@ -381,7 +381,7 @@ namespace CodeArtEng.SQLite.Tests
 
         #region [ 5 - Create Table ]
 
-        [Test,Order(50)]
+        [Test, Order(50)]
         public void ReadFromNonExistingTable()
         {
             //ToDo: Fail when table not found during read opoeration
@@ -438,6 +438,41 @@ namespace CodeArtEng.SQLite.Tests
             DB.CreateTable<MultiUniqueColTable>();
         }
 
+
+        #endregion
+
+        #region [ 7 - Table with Arrays ]
+
+        int arrayTableLength = 2;
+        int arrayItemsLength = 20;
+        TableWithArray[] ArrayTable, ArrayTableReadback;
+
+        [Test, Order(70)]
+        public void A_WriteTableWithArray()
+        {
+            ArrayTable = DB.WriteTableWithArrays(arrayTableLength, arrayItemsLength);
+            Assert.That(ArrayTable.Length, Is.EqualTo(arrayTableLength));
+            foreach (TableWithArray i in ArrayTable)
+                Assert.That(i.ArrayData.Length, Is.EqualTo(arrayItemsLength));
+
+            Assert.That(DB.GetTables().Contains("ArrayData"));
+        }
+
+        [Test, Order(71)]
+        public void A_ReadTableWithArray()
+        {
+            ArrayTableReadback = DB.ReadTableWithArrays();
+            Assert.That(ArrayTableReadback.Length, Is.EqualTo(arrayTableLength));
+            foreach(TableWithArray i in ArrayTableReadback)
+            {
+                Assert.That(i.ArrayData.Length, Is.EqualTo(arrayItemsLength));
+                Assert.That(i.ItemValue.Length, Is.EqualTo(arrayItemsLength));
+                
+                TableWithArray s = ArrayTable.FirstOrDefault(n => n.ID.Equals(i.ID));   
+                Assert.That(s, Is.Not.Null);
+                Assert.That(s.ArrayData.OrderBy(n => n), Is.EqualTo(i.ArrayData.OrderBy(n => n)));
+            }
+        }
 
         #endregion
     }

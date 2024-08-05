@@ -128,6 +128,8 @@ namespace CodeArtEng.SQLite.Tests
 
     #endregion
 
+    #region [ Source - Misc Table ]
+
     /// <summary>
     /// DB Table for miscellaneous write operation.
     /// </summary>
@@ -135,6 +137,28 @@ namespace CodeArtEng.SQLite.Tests
     {
         public string Text { get; set; }
     }
+
+    #endregion
+
+    #region [ Source - Table with Generic Array ]
+
+    public class TableWithArray
+    {
+        [PrimaryKey]
+        public int ID { get; set; }
+        /// <summary>
+        /// This is mandatory, otherwise table will be empty with only primary key.
+        /// </summary>
+        public string Name { get; set; }
+        /// <summary>
+        /// String data array, many to many implementation
+        /// </summary>
+        public string[] ArrayData { get; set; }
+        [SQLName("ArrayIntValue")]
+        public int[] ItemValue { get; set; }
+    }
+
+    #endregion
 
     internal class SQLiteMockedDB : SQLiteHelper
     {
@@ -177,7 +201,7 @@ namespace CodeArtEng.SQLite.Tests
 
         public string GenerateString(int length)
         {
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:',.<>? ";
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>? ";
             return new string(Enumerable.Repeat(chars, length)
               .Select(s => s[r.Next(s.Length)]).ToArray());
 
@@ -340,6 +364,36 @@ namespace CodeArtEng.SQLite.Tests
         public void WriteIndexTableToDB(string tableName, IndexTable[] items)
         {
             WriteToDatabase(items, tableName);
+        }
+
+        #endregion
+
+        #region [ Table with Array ]
+
+        public TableWithArray[] ReadTableWithArrays()
+        {
+            return ReadFromDatabase<TableWithArray>().ToArray();
+        }
+
+        public TableWithArray[] WriteTableWithArrays(int itemlength, int arraylength)
+        {
+            List<TableWithArray> items = new List<TableWithArray>();
+            for (int x = 0; x < itemlength; x++)
+            {
+                TableWithArray i = new TableWithArray();
+                //i.ID = GenerateString(5);
+                i.Name = GenerateString(5);
+                i.ArrayData = new string[arraylength];
+                i.ItemValue = new int[arraylength];
+                for(int y=0; y < arraylength; y++)
+                {
+                    i.ArrayData[y] = GenerateString(10);
+                    i.ItemValue[y] = r.Next(1000);
+                }
+                items.Add(i);
+            }
+            WriteToDatabase(items.ToArray());
+            return items.ToArray();
         }
 
         #endregion

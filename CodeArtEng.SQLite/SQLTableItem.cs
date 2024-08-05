@@ -34,7 +34,11 @@ namespace CodeArtEng.SQLite
         /// Return true if <see cref="SQLIndexTableAttribute"/> is defined.
         /// </summary>
         public bool IsIndexTable { get; private set; } = false;
-        public string IndexTableName { get; private set; } = string.Empty;
+        /// <summary>
+        /// Return true if property is array of primitive data type
+        /// </summary>
+        public bool IsArrayTable { get; private set; } = false;
+        public string TableName { get; private set; } = string.Empty;
         /// <summary>
         /// SQL column name / table name. Default value is property name unless
         /// <see cref="SQLNameAttribute"/> is defined.
@@ -73,7 +77,6 @@ namespace CodeArtEng.SQLite
         /// </summary>
         public bool IsUniqueColumn { get; private set; } = false;
 
-
         MethodInfo SetterMethod, GetterMethod;
         /// <summary>
         /// Constructor. Create table item from given property.
@@ -90,17 +93,16 @@ namespace CodeArtEng.SQLite
             IsPrimaryKey = Attribute.IsDefined(Property, typeof(PrimaryKeyAttribute));
             if (IsPrimaryKey) DataType = SQLDataType.INTEGER;
 
-            IndexTableName = SQLName = Property.Name;
+            TableName = SQLName = Property.Name;
             if (Attribute.IsDefined(Property, typeof(SQLNameAttribute)))
             {
                 SQLName = (Attribute.GetCustomAttribute(property, typeof(SQLNameAttribute))
                             as SQLNameAttribute)?.Name;
             }
-            if (Attribute.IsDefined(property, typeof(SQLUniqueAttribute)))
+            if (Attribute.IsDefined(Property, typeof(SQLUniqueAttribute)))
             {
                 IsUniqueColumn = true;
             }
-
             if (Attribute.IsDefined(Property, typeof(ParentKeyAttribute)))
             {
                 if (ItemType != typeof(int) && ItemType != typeof(long))
@@ -109,8 +111,6 @@ namespace CodeArtEng.SQLite
                 ParentType = (Attribute.GetCustomAttribute(property, typeof(ParentKeyAttribute))
                             as ParentKeyAttribute).Parent;
             }
-
-
             if (Attribute.IsDefined(Property, typeof(SQLIndexTableAttribute)))
             {
                 if (Property.PropertyType != typeof(string))
@@ -119,10 +119,9 @@ namespace CodeArtEng.SQLite
                 DataType = SQLDataType.INTEGER;
                 string indexTableName = (Attribute.GetCustomAttribute(property, typeof(SQLIndexTableAttribute))
                         as SQLIndexTableAttribute).Name;
-                if (!string.IsNullOrEmpty(indexTableName)) IndexTableName = indexTableName;
+                if (!string.IsNullOrEmpty(indexTableName)) TableName = indexTableName;
             }
-
-            if (ItemType.IsGenericType && ItemType.IsClass)
+            else if (ItemType.IsGenericType && ItemType.IsClass)
             {
                 if (ItemType.Name.StartsWith("List"))
                 {
@@ -132,6 +131,18 @@ namespace CodeArtEng.SQLite
                 }
                 else throw new FormatException($"Generic type {ItemType.Name} not supported, only List is allowed!");
             }
+            else if (ItemType.IsArray)
+            {
+                IsArrayTable = true;
+                DataType = ConvertToSQLDataType(ItemType.GetElementType());
+                if (Attribute.IsDefined(Property, typeof(SQLArrayTableAtribute)))
+                {
+                    string arrayTableName = (Attribute.GetCustomAttribute(property, typeof(SQLArrayTableAtribute))
+                            as SQLArrayTableAtribute).Name;
+                    if (!string.IsNullOrEmpty(arrayTableName)) TableName = arrayTableName;
+                }
+            }
+            else DataType = ConvertToSQLDataType(Property.PropertyType);
 
             if (Attribute.IsDefined(Property, typeof(SQLDatabseAttribute)))
             {
@@ -140,29 +151,37 @@ namespace CodeArtEng.SQLite
                                     as SQLDatabseAttribute).DatabaseFilePath;
             }
 
-            if (!IsChildTable)
+            if (Attribute.IsDefined(Property, typeof(SQLDataTypeAttribute)))
             {
-                if (Attribute.IsDefined(Property, typeof(SQLDataTypeAttribute)))
-                {
-                    IsDataTypeDefined = true;
-                    DataType = (Attribute.GetCustomAttribute(property, typeof(SQLDataTypeAttribute))
-                            as SQLDataTypeAttribute).DataType;
-                }
-                else
-                {
-                    Type itemType = Property.PropertyType;
-
-                    //Assign SQL Column type based on property type.
-                    if (typeof(int).IsAssignableFrom(itemType) ||
-                        typeof(long).IsAssignableFrom(itemType) ||
-                        (ItemType == typeof(bool)))
-                        DataType = SQLDataType.INTEGER;
-
-                    else if (typeof(double).IsAssignableFrom(itemType) ||
-                            typeof(float).IsAssignableFrom(itemType))
-                        DataType = SQLDataType.REAL;
-                }
+                IsDataTypeDefined = true;
+                DataType = (Attribute.GetCustomAttribute(property, typeof(SQLDataTypeAttribute))
+                        as SQLDataTypeAttribute).DataType;
             }
+        }
+
+        /// <summary>
+        /// Convert primitive data type to SQL Data type.
+        /// </summary>
+        /// <param name="itemType"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidCastException"></exception>
+        private SQLDataType ConvertToSQLDataType(Type itemType)
+        {
+            SQLDataType result;
+
+            //Assign SQL Column type based on property type.
+            if (typeof(int).IsAssignableFrom(itemType) ||
+                typeof(long).IsAssignableFrom(itemType) ||
+                (itemType == typeof(bool)))
+                result = SQLDataType.INTEGER;
+
+            else if (typeof(double).IsAssignableFrom(itemType) ||
+                    typeof(float).IsAssignableFrom(itemType))
+                result = SQLDataType.REAL;
+
+            else result = SQLDataType.TEXT;
+
+            return result;
         }
 
         /// <summary>

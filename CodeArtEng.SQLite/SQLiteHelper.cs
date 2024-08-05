@@ -191,7 +191,7 @@ namespace CodeArtEng.SQLite
             }
 
             ReadOnly = readOnly;
-            if(ReadOnly) ConnectString += "Read Only=True;";
+            if (ReadOnly) ConnectString += "Read Only=True;";
             ConnectStringReadOnly = ConnectString + "Read Only=True;";
             DBConnection.ConnectionString = ConnectString;
         }
@@ -459,13 +459,13 @@ namespace CodeArtEng.SQLite
         }
 
         /// <summary>
-        /// Return ROW_ID for last updated row.
+        /// Return ROW_ID for selected table
         /// </summary>
         /// <remarks>Value reset once connection closed.</remarks>
         /// <returns></returns>
-        protected int GetLastInsertedRowID()
+        protected int GetLastRowID(string tableName)
         {
-            object value = ExecuteScalar("SELECT last_insert_rowid()");
+            object value = ExecuteScalar("SELECT max(rowID) from " + tableName);
             return Convert.ToInt32(value);
         }
 
@@ -582,6 +582,19 @@ namespace CodeArtEng.SQLite
 
                     if (item.DataType == SQLDataType.REAL && !column.Type.Equals("REAL"))
                         throw new FormatException(errHeaderDB + "Type mismatched, expecting REAL!");
+                }
+            }
+
+            foreach (SQLTableItem i in info.ArrayTables)
+            {
+                if (!VerifyTableExists(i.TableName))
+                {
+                    if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
+                        CreateArrayTable(i.DataType, i.TableName);
+                    else if (IsDatabaseReadOnly) //Database is readonly, table not exist, skip validation
+                        return false;
+                    else
+                        throw new InvalidOperationException($"Table [{info.TableName}] not exists in database!");
                 }
             }
 
@@ -731,12 +744,37 @@ namespace CodeArtEng.SQLite
             //Assign value to index key property (SQLIndex)
             foreach (SQLTableItem i in senderTable.IndexKeys)
             {
-                IndexTableHandler indexTable = GetIndexTable(i.IndexTableName);
-                if (indexTable == null) throw new Exception($"Index table {i.IndexTableName} not exists in database!");
+                IndexTableHandler indexTable = GetIndexTable(i.TableName);
+                if (indexTable == null) throw new Exception($"Index table {i.TableName} not exists in database!");
                 foreach (var r in results)
                 {
                     string value = indexTable.GetValueById(Convert.ToInt32(i.Property.GetValue(r)));
                     i.SetDBValue(r, value);
+                }
+            }
+
+            foreach (SQLTableItem t in senderTable.ArrayTables)
+            {
+                //Get array primitive data type
+                Type elementType = t.Property.PropertyType.GetElementType();
+                Type listType = typeof(List<>).MakeGenericType(elementType);
+                foreach (var k in results)
+                {
+                    //Get primary key for each item.
+                    int pKey = (int)primaryKey.GetDBValue(k);
+                    query = $"SELECT VALUE FROM {t.TableName} WHERE ID == {pKey}";
+
+                    //Query from array table.
+                    List<object> list = new List<object>();
+                    ExecuteQuery(query, processQueryResults: r =>
+                    {
+                        while (r.Read()) list.Add(r.GetValue(0));
+                    });
+
+                    Array newArray = Array.CreateInstance(elementType, list.Count);
+                    for (int x = 0; x < list.Count; x++) 
+                        newArray.SetValue(Convert.ChangeType(list[x], elementType), x);
+                    t.Property.SetValue(k, newArray);
                 }
             }
 
@@ -781,13 +819,13 @@ namespace CodeArtEng.SQLite
                 if (table.IndexKeys.Length == 0) return;
                 foreach (SQLTableItem p in table.IndexKeys)
                 {
-                    IndexTableHandler tb = GetIndexTable(p.IndexTableName);
+                    IndexTableHandler tb = GetIndexTable(p.TableName);
                     if (tb == null) continue;
                     if (tb.LastReadID == ReadOpID) continue;
                     tb.LastReadID = ReadOpID;
 
                     tb.Items.Clear();
-                    string query = $"SELECT ID,Name from {p.IndexTableName}";
+                    string query = $"SELECT ID,Name from {p.TableName}";
                     ExecuteQuery(query, processQueryResults: r =>
                     {
                         while (r.Read())
@@ -808,9 +846,19 @@ namespace CodeArtEng.SQLite
             }
         }
 
-        //ToDo: Write option - Write parent, child, child and parent.
+        /// <summary>
+        /// Write items to databse, input must be item or array represent the table class.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="senders"></param>
+        /// <exception cref="ArgumentException"></exception>
         protected void WriteToDatabase<T>(params T[] senders) where T : class
         {
+            //ToDo: Test with generic aaray like string and int.
+
+            if (typeof(T).IsGenericType)
+                throw new ArgumentException("Expected array but not generic type (List / Dictionary)! " +
+                    "Use ToArray() to convert list to to array.");
             WriteToDatabase(senders, string.Empty);
         }
 
@@ -876,6 +924,9 @@ namespace CodeArtEng.SQLite
                 int pKeyID = -1;
                 if (primaryKey != null)
                 {
+                    //ToDo: Assign primary key only possible if primary key type is INT. Allow string datatype as primary key
+                    // User is responsible to ensure primary key value is defined and it's not null
+
                     // Include primary keys in query if value is not 0
                     pKeyID = (int)primaryKey.Property.GetValue(item);
                     if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
@@ -894,7 +945,7 @@ namespace CodeArtEng.SQLite
                 //Replace value for property marked as SQLIndex with id.
                 foreach (SQLTableItem i in senderTable.IndexKeys)
                 {
-                    IndexTableHandler indexTable = GetIndexTable(i.IndexTableName);
+                    IndexTableHandler indexTable = GetIndexTable(i.TableName);
                     string value = i.Property.GetValue(item)?.ToString();
                     if (string.IsNullOrEmpty(value))
                     {
@@ -917,10 +968,32 @@ namespace CodeArtEng.SQLite
                 if (assignPrimaryKey)
                 {
                     //Primary key value is 0, read assigned primary key value from database.
-                    int lastRowID = GetLastInsertedRowID();
+                    int lastRowID = GetLastRowID(tableName);
                     pKeyID = Convert.ToInt32(ExecuteScalar($"SELECT {primaryKey.Name} FROM {tableName} WHERE ROWID = {lastRowID}"));
                     //Update primary key value to object.
                     primaryKey.Property.SetValue(item, pKeyID);
+                }
+
+                //Write array values to Array Table
+                foreach (SQLTableItem t in senderTable.ArrayTables)
+                {
+                    Type elementType = t.Property.PropertyType.GetElementType();
+                    bool isString = elementType == typeof(string);
+                    string arrayTableName = t.TableName;
+                    //Delete old records
+                    query = $"DELETE FROM {arrayTableName} WHERE ID = {pKeyID}";
+                    ExecuteNonQuery(query);
+                    ExecuteTransaction(() =>
+                    {
+                        IList childs = t.Property.GetValue(item) as IList;
+                        foreach (var c in childs)
+                        {
+                            query = $"INSERT INTO {arrayTableName} (ID, VALUE) VALUES ({pKeyID}, ";
+                            query += isString ? $"'{c}'" : c;
+                            query += ")";
+                            ExecuteNonQuery(query);
+                        }
+                    });
                 }
 
                 //Assign Value and parent key for nested table.
@@ -953,6 +1026,7 @@ namespace CodeArtEng.SQLite
                     }
                     finally { RestorePrimaryDBPath(dbBackup); }
                 }
+
             }//for each items in senders
         }
 
@@ -1031,6 +1105,21 @@ namespace CodeArtEng.SQLite
         #endregion
 
         #region [ Create Table ]
+
+        protected string CreateArrayTable(SQLDataType sqlDataType, string tableName)
+        {
+            Type primitiveType;
+            switch (sqlDataType)
+            {
+                case SQLDataType.TEXT: primitiveType = typeof(string); break;
+                case SQLDataType.REAL: primitiveType = typeof(double); break;
+                case SQLDataType.INTEGER: primitiveType = typeof(int); break;
+                default: throw new IndexOutOfRangeException("Unknown / unsupported SQLDataType!");
+            }
+
+            Type tableType = typeof(ArrayTable<>).MakeGenericType(primitiveType);
+            return CreateTable(tableType, tableName);
+        }
 
         protected string CreateTable(Type tableType, string tableName)
         {

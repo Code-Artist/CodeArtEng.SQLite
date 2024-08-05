@@ -64,6 +64,10 @@ namespace CodeArtEng.SQLite
         /// </summary>
         public SQLTableItem[] IndexKeys { get; private set; }
         /// <summary>
+        /// Array Table
+        /// </summary>
+        public SQLTableItem[] ArrayTables { get; private set; }
+        /// <summary>
         /// Children table.
         /// </summary>
         public SQLTableItem[] ChildTables { get; private set; }
@@ -102,9 +106,10 @@ namespace CodeArtEng.SQLite
             if (parentKeys.Length > 1) throw new FormatException($"Declaration error in class {Name}, only 1 parent key is allowed!");
             ParentKey = parentKeys.FirstOrDefault();
             IndexKeys = Columns.Where(n => n.IsIndexTable).ToArray();
+            ArrayTables = Columns.Where(n => n.IsArrayTable).ToArray();
 
             ChildTables = Columns.Where(n => n.IsChildTable).ToArray();
-            Columns = Columns.Except(ChildTables).ToArray();
+            Columns = Columns.Except(ChildTables).Except(ArrayTables).ToArray();
 
             //Sanity Check
             if (Columns.Where(n => n.IsPrimaryKey).Count() > 1)
@@ -113,7 +118,8 @@ namespace CodeArtEng.SQLite
                 $"Multiple primary keys attribute defined in class {Name}. " +
                 $"Table with multiple primary keys is currently not supported!");
             }
-            else if (ChildTables.Length > 0)
+            
+            if (ChildTables.Length > 0)
             {
                 if (PrimaryKey == null) throw new FormatException($"Missing primary key for table {TableName}!");
                 foreach (SQLTableItem i in ChildTables)
@@ -126,6 +132,11 @@ namespace CodeArtEng.SQLite
                     if (i.ChildTableInfo.ParentKey.ParentType != TableType)
                         throw new FormatException($"Parent key {TableType} not found in table {i.SQLName}!");
                 }
+            }
+
+            if(ArrayTables.Length > 0)
+            {
+                if (PrimaryKey == null) throw new FormatException($"Table {TableName} with array properties must have primary key!");
             }
         }
 

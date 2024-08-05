@@ -301,6 +301,39 @@ public class Department
 }
 ```
 
+### Array Table
+The array table functionality allows the storage of array properties from a sample table, `TableWithArray`, into separate SQLite tables. This process involves creating specific SQLite tables for each type of array property, enabling efficient storage and retrieval of array data. The following example demonstrates how to map the array properties into SQLite tables.
+
+```C#
+public class TableWithArray
+{
+	[PrimaryKey]
+	public int ID { get; set; }
+
+	...
+	
+	public string[] ArrayData { get; set; }
+
+	[SQLName("ArrayIntValue")]
+	public int[] ItemValue { get; set; }
+}
+
+```
+`ArrayData`is a string array which mapped into ArrayTable with TEXT value.
+```
+ArrayData (Table)
+  |- ID, INTEGER
+  |- Value, TEXT
+```
+
+`ItemValue` is an integer array, mapped to the SQLite table `ArrayIntValue` using the SQLName attribute.
+```
+ArrayIntValue (Table)
+  |- ID, INTEGER
+  |- Value, INTEGER
+```
+
+
 # Suggestion and Feedback
 We hope this document has provided you with clear and helpful information to use this tool.
 Your feedback is invaluable to us as it helps improve the quality of our work and clarity of our documentation. Please share your suggestions, comments, or any difficulties you encountered while using this guide. Your input will assist us in enhancing our resources and supporting users like you more effectively. Thank you for your attention and contribution.
