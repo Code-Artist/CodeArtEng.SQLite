@@ -156,6 +156,8 @@ namespace CodeArtEng.SQLite.Tests
         public string[] ArrayData { get; set; }
         [SQLName("ArrayIntValue")]
         public int[] ItemValue { get; set; }
+
+        public string[] EmptyData { get; set; } = null;
     }
 
     #endregion

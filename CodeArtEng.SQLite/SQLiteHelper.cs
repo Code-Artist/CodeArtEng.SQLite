@@ -983,9 +983,10 @@ namespace CodeArtEng.SQLite
                     //Delete old records
                     query = $"DELETE FROM {arrayTableName} WHERE ID = {pKeyID}";
                     ExecuteNonQuery(query);
+                    IList childs = t.Property.GetValue(item) as IList;
+                    if (childs == null) continue;
                     ExecuteTransaction(() =>
                     {
-                        IList childs = t.Property.GetValue(item) as IList;
                         foreach (var c in childs)
                         {
                             query = $"INSERT INTO {arrayTableName} (ID, VALUE) VALUES ({pKeyID}, ";
