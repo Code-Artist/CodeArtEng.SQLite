@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Diagnostics.SymbolStore;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Reflection;
 
 //ToDo: Read and Write Async
@@ -761,7 +762,7 @@ namespace CodeArtEng.SQLite
                 foreach (var k in results)
                 {
                     //Get primary key for each item.
-                    int pKey = (int)primaryKey.GetDBValue(k);
+                    object pKey = primaryKey.GetDBValue(k);
                     query = $"SELECT VALUE FROM {t.TableName} WHERE ID == {pKey}";
 
                     //Query from array table.
@@ -772,9 +773,9 @@ namespace CodeArtEng.SQLite
                     });
 
                     Array newArray = Array.CreateInstance(elementType, list.Count);
-                    for (int x = 0; x < list.Count; x++) 
+                    for (int x = 0; x < list.Count; x++)
                         newArray.SetValue(Convert.ChangeType(list[x], elementType), x);
-                    t.Property.SetValue(k, newArray);
+                    t.Property.SetValueEx(k, newArray);
                 }
             }
 
@@ -800,10 +801,10 @@ namespace CodeArtEng.SQLite
                     {
                         foreach (T i in results)
                         {
-                            int pKey = (int)senderTable.PrimaryKey.GetDBValue(i);
+                            object pKey = senderTable.PrimaryKey.GetDBValue(i);
                             //Recursive call to ReadFromDatabse method.
                             object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.ParentKey.Name} == {pKey}" });
-                            r.Property.SetValue(i, childItems);
+                            r.Property.SetValueEx(i, childItems);
                         }
                     }
                     finally { RestorePrimaryDBPath(dbBackup); }
@@ -920,8 +921,9 @@ namespace CodeArtEng.SQLite
             {
                 SQLTableItem[] arguments = senderTable.Columns;
                 SQLTableItem primaryKey = senderTable.PrimaryKey;
-                bool assignPrimaryKey = false;
-                int pKeyID = -1;
+                bool autoAssignPrimaryKey = false;
+                long pKeyID = -1;
+                string query = null;
                 if (primaryKey != null)
                 {
                     //ToDo: Assign primary key only possible if primary key type is INT. Allow string datatype as primary key
@@ -930,13 +932,16 @@ namespace CodeArtEng.SQLite
                     // Include primary keys in query if value is not 0
                     pKeyID = (int)primaryKey.Property.GetValue(item);
                     if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
-                    else assignPrimaryKey = true;
+                    else autoAssignPrimaryKey = true;
                 }
 
-                // Create SQL query for insertion
-                string query = $"INSERT OR REPLACE INTO {tableName} " +
+                //Query without primary key, safe to use INSERT or REPLACE Statement
+                //Create SQL query for insertion
+                query = $"INSERT OR REPLACE INTO {tableName} " +
                     $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
                     $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
+
+                if (autoAssignPrimaryKey) query = query.Replace("INSERT OR REPLACE", "INSERT OR IGNORE");
 
                 //Create parameter list
                 List<SQLiteParameter> parameters = arguments.Except(senderTable.IndexKeys).
@@ -962,16 +967,32 @@ namespace CodeArtEng.SQLite
                 // Execute SQL query for current table
                 Command.Parameters.Clear();
                 Command.Parameters.AddRange(parameters.ToArray());
-                ExecuteNonQuery(query);
+                int rowChanged = ExecuteNonQuery(query); //ToDo: Unqiue Constraints may cause existing row get overwrite with differnet primary key
 
                 //Assign Primary Key
-                if (assignPrimaryKey)
+                if (autoAssignPrimaryKey && rowChanged == 1)
                 {
                     //Primary key value is 0, read assigned primary key value from database.
                     int lastRowID = GetLastRowID(tableName);
                     pKeyID = Convert.ToInt32(ExecuteScalar($"SELECT {primaryKey.Name} FROM {tableName} WHERE ROWID = {lastRowID}"));
                     //Update primary key value to object.
-                    primaryKey.Property.SetValue(item, pKeyID);
+                    primaryKey.Property.SetValueEx(item, pKeyID);
+                }
+                else if(autoAssignPrimaryKey)
+                {
+                    autoAssignPrimaryKey = false;
+
+                    //Unique constraint violated, row with same unique constrtin exists.
+                    SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn).ToArray();
+                    if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
+                    string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
+                        string.Join(", ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
+
+                    pKeyID = (long)ExecuteScalar(queryUniqueItem);
+                    primaryKey.Property.SetValueEx(item, pKeyID);
+                    arguments = arguments.Append(primaryKey).ToArray();
+                    query = query.Replace("INSERT OR IGNORE", "INSERT OR REPLACE");
+                    ExecuteNonQuery(query);
                 }
 
                 //Write array values to Array Table
@@ -1012,7 +1033,7 @@ namespace CodeArtEng.SQLite
                     {
                         foreach (object c in childs)
                         {
-                            childTableInfo.ParentKey.Property.SetValue(c, pKeyID);
+                            childTableInfo.ParentKey.Property.SetValueEx(c, pKeyID);
                             childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
                         }
                     }
@@ -1031,7 +1052,7 @@ namespace CodeArtEng.SQLite
             }//for each items in senders
         }
 
-        private void DeleteChildItemsByParentID(SQLTableInfo childTableInfo, int parentID)
+        private void DeleteChildItemsByParentID(SQLTableInfo childTableInfo, long parentID)
         {
             string query = $"DELETE FROM {childTableInfo.TableName} WHERE {childTableInfo.ParentKey.Name} == {parentID}";
             ExecuteNonQuery(query);
@@ -1056,7 +1077,7 @@ namespace CodeArtEng.SQLite
             foreach (T item in senders)
             {
                 //Get primary key for each item.
-                int pKey = (int)senderTable.PrimaryKey.Property.GetValue(item);
+                object pKey = senderTable.PrimaryKey.Property.GetValue(item);
 
                 //Delete all child items by parent's primary key.
                 foreach (SQLTableItem t in senderTable.ChildTables)

@@ -463,17 +463,40 @@ namespace CodeArtEng.SQLite.Tests
         {
             ArrayTableReadback = DB.ReadTableWithArrays();
             Assert.That(ArrayTableReadback.Length, Is.EqualTo(arrayTableLength));
-            foreach(TableWithArray i in ArrayTableReadback)
+            foreach (TableWithArray i in ArrayTableReadback)
             {
                 Assert.That(i.ArrayData.Length, Is.EqualTo(arrayItemsLength));
                 Assert.That(i.ItemValue.Length, Is.EqualTo(arrayItemsLength));
-                
-                TableWithArray s = ArrayTable.FirstOrDefault(n => n.ID.Equals(i.ID));   
+
+                TableWithArray s = ArrayTable.FirstOrDefault(n => n.ID.Equals(i.ID));
                 Assert.That(s, Is.Not.Null);
                 Assert.That(s.ArrayData.OrderBy(n => n), Is.EqualTo(i.ArrayData.OrderBy(n => n)));
             }
         }
 
         #endregion
+
+        #region [ 8 - Unique Constraint with Primary Key ]
+
+        [Test, Order(80)]
+        public void U_UpdateItemWithUniqueConstraint()
+        {
+            IndexTable item = new IndexTable() { Name = "Test" };
+            DB.WriteIndexTableToDB("UniqueConstraint", item);
+            Assert.That(item.ID != 0);
+            int pKey = item.ID;
+
+
+            DB.WriteIndexTableToDB("UniqueConstraint", item);
+            Assert.That(item.ID, Is.EqualTo(pKey)); 
+
+            item.ID = 0;
+            DB.WriteIndexTableToDB("UniqueConstraint", item);
+            Assert.That(item.ID, Is.EqualTo(pKey)); 
+        }
+
+
+        #endregion
     }
+
 }

@@ -363,7 +363,7 @@ namespace CodeArtEng.SQLite.Tests
             return ReadFromDatabase<IndexTable>(tableName: tableName).ToArray();
         }
 
-        public void WriteIndexTableToDB(string tableName, IndexTable[] items)
+        public void WriteIndexTableToDB(string tableName, params IndexTable[] items)
         {
             WriteToDatabase(items, tableName);
         }
