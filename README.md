@@ -19,6 +19,7 @@
     + [Primary Key](#primary-key)
     + [Parent and Child Tables](#parent-and-child-tables)
     + [Multiple Database Source](#multiple-database-source)
+	+ [Array Table](#array-table)
 - [Suggestion and Feedback](#suggestion-and-feedback)
 
 # Introduction
@@ -144,7 +145,8 @@ public Employee[] ReadEmployeeData()
 ```
 
 ## Write Data to Database
-To update or write new data into database, you can utilize the `WriteToDatabase` method. Alternatively, achieving the same results is possible by employing the `ExecuteNonQuery` method.
+To update or write new data into database, you can utilize the `WriteToDatabase` method. 
+Although it is possible perform the same action using `ExecuteNonQuery` method for simple table structure, `WriteToDatabase` method capable to handle more complex database structure which described in following section.
 ```C#
 public void WriteEmployeeData(Employee[] newDatas)
 {
@@ -152,12 +154,18 @@ public void WriteEmployeeData(Employee[] newDatas)
 }
 ```
 
-## Reading and Writing Complex Tables (ORM)
-The ReadFromDatabase and WriteToDatabase methods make it easy to link objects in your code to tables in your database. They work well with tables that have relationships (child tables) and can handle working with more than one database using simple commands. Let’s take a closer look at what they can do.
+# Reading and Writing Complex Tables (ORM)
+The `ReadFromDatabase` and `WriteToDatabase` methods make it easy to link objects in your code to tables in your database. They work well with tables that have relationships (child tables) and can handle working with more than one database using simple commands. Let’s take a closer look at what they can do.
 
 These methods follow the Fail Fast Principle, which means they quickly check if the structure of your objects matches the structure of your database tables when you first use them. This check is to make sure that all the columns match up. To avoid problems with older versions, your database tables can have extra columns that aren’t in your objects, but not the other way around.
 
-### Table Name
+## SQLite Write Option
+The 'WriteOptions' properties specify by `SQLiteWriteOption` class, sets how SQLiteHelper behaves when reading and writing data with following options:
+
+* `CreateTable`: Automatic create table in database if not exists when set to true. Do nothing if table already exists.
+* `WriteMode`: Used by `WriteToDatabase` method to decide what to update. (Reserved for future implemntation, not available yet)
+
+## Table Name
 Mapping a class to database table named *Employee*. Use `SQLName` attribute to overwrite default table name.
 ```C#
 public class Employee { ... }
@@ -166,7 +174,7 @@ public class Employee { ... }
 public class Emp { ... }
 ```    
 
-### Column Name
+## Column Name
 All public properties that have public getters and setters are regarded as SQL columns.
 The names of these properties are, by default, used as the names of the corresponding columns.
 The `SQLName` attribute can be used to overwrite the default column name or table name.
@@ -192,7 +200,7 @@ public class Employee
 }
 ```
 
-### Data Type
+## Data Type
 The table below displays the default data type mappings between objects and the database. Ensuring matching data types is crucial for the accurate writing and reading of data.
 **NOTE**: SQLite may automatically convert values to the appropriate datatype. More details in SQLite documentation [Type Affinity](https://sqlite.org/datatype3.html#type_affinity)
 
@@ -216,7 +224,7 @@ public class MyTable
 }
 ```
 
-### Index Table
+## Index Table
 The example below demonstrates that `UserName` is stored as an index in the `NameID` column of the `Employee` table, while the actual string value is kept in a key-value pair table named `Name`. This method facilitates efficient data retrieval and management, particularly when the same name is used multiple times across different tables.
 
 Table name parameter for `SQLIndexTable` is optional. If left blank, the property name `UserName` will be used as the table name. The values for the index table can be shared among multiple tables.
@@ -237,10 +245,10 @@ Employee (Table)
 
 Name (Table)
   |- ID, INTEGER, Primary Key
-  |- Name, TEXT
+  |- Name, TEXT, Unique
 ```
 
-### Primary Key
+## Primary Key
 The primary key attribute is linked to the primary key in the database table. When the `WriteToDatabase` method is executed with an item whose ID is 0, it will create a new entry in the database table and assign it a unique ID. If the ID is not 0, it will update the existing row with the matching ID.
 **NOTE:** Primary key must be declared with `int` type.
 ```C#
@@ -252,7 +260,7 @@ public class Employee
 }
 ```
 
-### Parent and Child Tables
+## Parent and Child Tables
 Let's examine the example provided: In database, `Department` (Table Name: Department) serves as a parent table, and `List<Employee>` (Table Name: Employees) functions as a child table with a one-to-many relationship, where each department can be associated with multiple employees. In other words, for every single entry in the `Department` table, there can be several corresponding entries in the `Employee` table, each representing an individual employee belonging to that department, while each `Employee` is assigned to only one `Department`.
 
 Child table must have a properties ID declared with `ParentKey` attribute which function as mapping between child and parent table. Value of `DepartmentID` in example below is assigned by SQLite Helper. `PrimaryKey` for class class `Department` is mandatory while it is optional for class `Employee` depends on need of the design.
@@ -288,7 +296,7 @@ Employee (Table)
   |- DepartmentID, INTEGER  
 ```
 
-### Multiple Database Source
+## Multiple Database Source
 SQLite Helper also support multiple database source, allow data to be read and write from tables stored in different SQLite database files. Example below showing that `Department` table is stored in main database while `Employee` table is table stored in **Employee.db**. Switching between main and sub database are handled internally by read and write method.
 This `SQLDatabase` attribute can only be used with child table.
 ```C#
@@ -301,7 +309,7 @@ public class Department
 }
 ```
 
-### Array Table
+## Array Table
 The array table functionality allows the storage of array properties from a sample table, `TableWithArray`, into separate SQLite tables. This process involves creating specific SQLite tables for each type of array property, enabling efficient storage and retrieval of array data. The following example demonstrates how to map the array properties into SQLite tables.
 
 ```C#
@@ -332,6 +340,58 @@ ArrayIntValue (Table)
   |- ID, INTEGER
   |- Value, INTEGER
 ```
+
+## Unique Constraint
+The `SQLUnique` and `SQLUniqueMultiColumn` attributes are used to mark columns with a unique constraint. `SQLUnique` sets a unique constraint on a single column, while `SQLUniqueMultiColumn` sets unique constraints across multiple columns.
+
+Example usage of these attributes as follow:
+```C#
+public class User
+{
+    [PrimaryKey]
+    public int ID { get; set; }
+
+    [SQLUnique]
+    public string Email { get; set; }
+
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+
+    [SQLUniqueMultiColumn]
+    public string Username { get; set; }
+
+    [SQLUniqueMultiColumn]
+    public string PhoneNumber { get; set; }
+}
+```
+SQL Table Structure
+```
+User (Table)
+  |- ID, INTEGER, Primary Key
+  |- Email, TEXT, Unique
+  |- FirstName, TEXT
+  |- LastName, TEXT
+  |- Username, TEXT
+  |- PhoneNumber, TEXT
+     (Unique Username, PhoneNumber)	 
+```
+SQL Schema
+```SQL
+CREATE TABLE User (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Email TEXT UNIQUE,
+    FirstName TEXT,
+    LastName TEXT,
+    Username TEXT,
+    PhoneNumber TEXT,
+    UNIQUE (Username, PhoneNumber)
+);
+```
+
+In this example:
+
+The `Email` column is marked with the `SQLUnique` attribute, ensuring that each email address is unique.
+The `Username` and `PhoneNumber` columns are marked with the `SQLUniqueMultiColumn` attribute, ensuring that the combination of `Username` and `PhoneNumber` is unique across the table.
 
 
 # Suggestion and Feedback
