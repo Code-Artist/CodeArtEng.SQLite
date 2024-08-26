@@ -488,11 +488,28 @@ namespace CodeArtEng.SQLite.Tests
 
 
             DB.WriteIndexTableToDB("UniqueConstraint", item);
-            Assert.That(item.ID, Is.EqualTo(pKey)); 
+            Assert.That(item.ID, Is.EqualTo(pKey));
 
             item.ID = 0;
             DB.WriteIndexTableToDB("UniqueConstraint", item);
-            Assert.That(item.ID, Is.EqualTo(pKey)); 
+            Assert.That(item.ID, Is.EqualTo(pKey));
+        }
+
+        [Test, Order(81)]
+        public void U_UpdateItemWithMultiUniqueConstraint()
+        {
+            TableMultiConstraint item = new TableMultiConstraint() { Name = "Test", Value = 100 };
+            DB.WriteTableMultiConstraint(item);
+            Assert.That(item.ID != 0);
+            int pKey = item.ID;
+
+            item.Value = 200;
+            DB.WriteTableMultiConstraint(item);
+            Assert.That(item.ID, Is.EqualTo(pKey));
+
+            item.ID = 0;
+            DB.WriteTableMultiConstraint(item);
+            Assert.That(item.ID, Is.EqualTo(pKey));
         }
 
 

@@ -162,6 +162,20 @@ namespace CodeArtEng.SQLite.Tests
 
     #endregion
 
+    #region [ Source - Table with Multiple Unqiue Constraint ]
+
+    public class TableMultiConstraint
+    {
+        [PrimaryKey]
+        public int ID { get; set; }
+        [SQLUniqueMultiColumn]
+        public string Name { get; set; }
+        [SQLUniqueMultiColumn]
+        public int Value { get; set; }
+    }
+
+    #endregion
+
     internal class SQLiteMockedDB : SQLiteHelper
     {
         Random r = new Random((int)DateTime.Now.Ticks);
@@ -387,7 +401,7 @@ namespace CodeArtEng.SQLite.Tests
                 i.Name = GenerateString(5);
                 i.ArrayData = new string[arraylength];
                 i.ItemValue = new int[arraylength];
-                for(int y=0; y < arraylength; y++)
+                for (int y = 0; y < arraylength; y++)
                 {
                     i.ArrayData[y] = GenerateString(10);
                     i.ItemValue[y] = r.Next(1000);
@@ -396,6 +410,20 @@ namespace CodeArtEng.SQLite.Tests
             }
             WriteToDatabase(items.ToArray());
             return items.ToArray();
+        }
+
+        #endregion
+
+        #region [ Table with Multi Columns Constraint ]
+
+        public TableMultiConstraint[] ReadTableWithMultiConstraint()
+        {
+            return ReadFromDatabase<TableMultiConstraint>().ToArray();
+        }
+
+        public void WriteTableMultiConstraint(params TableMultiConstraint[] items)
+        {
+            WriteToDatabase(items);
         }
 
         #endregion

@@ -76,6 +76,10 @@ namespace CodeArtEng.SQLite
         /// Define if column is unique. Set by <see cref="SQLUniqueAttribute"/>
         /// </summary>
         public bool IsUniqueColumn { get; private set; } = false;
+        /// <summary>
+        /// Define if column is unique with multiple constraint. Set by <see cref="SQLUniqueMultiColumnAttribute"/>
+        /// </summary>
+        public bool IsUniqueMulltiColumn { get; private set; } = false; 
 
         MethodInfo SetterMethod, GetterMethod;
         /// <summary>
@@ -103,6 +107,11 @@ namespace CodeArtEng.SQLite
             {
                 IsUniqueColumn = true;
             }
+            if (Attribute.IsDefined(Property, typeof(SQLUniqueMultiColumnAttribute)))
+            {
+                IsUniqueMulltiColumn = true;
+            }
+
             if (Attribute.IsDefined(Property, typeof(ParentKeyAttribute)))
             {
                 if (ItemType != typeof(int) && ItemType != typeof(long))

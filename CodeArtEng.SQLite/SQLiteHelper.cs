@@ -978,15 +978,15 @@ namespace CodeArtEng.SQLite
                     //Update primary key value to object.
                     primaryKey.Property.SetValueEx(item, pKeyID);
                 }
-                else if(autoAssignPrimaryKey)
+                else if (autoAssignPrimaryKey)
                 {
                     autoAssignPrimaryKey = false;
 
                     //Unique constraint violated, row with same unique constrtin exists.
-                    SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn).ToArray();
+                    SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn || n.IsUniqueMulltiColumn).ToArray();
                     if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
                     string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
-                        string.Join(", ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
+                        string.Join(" AND ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
 
                     pKeyID = (long)ExecuteScalar(queryUniqueItem);
                     primaryKey.Property.SetValueEx(item, pKeyID);
@@ -1178,9 +1178,7 @@ namespace CodeArtEng.SQLite
             }
 
             //Select columns defined with SQLUniqueMultiColumns attribute
-            string[] uniqueMultiColumns = ptrTable.Columns.Where(
-                    n => Attribute.IsDefined(n.Property,
-                    typeof(SQLUniqueMultiColumnAttribute)))
+            string[] uniqueMultiColumns = ptrTable.Columns.Where(n => n.IsUniqueMulltiColumn)
                     .Select(n => n.SQLName).ToArray();
             if (uniqueMultiColumns.Length > 0)
             {
