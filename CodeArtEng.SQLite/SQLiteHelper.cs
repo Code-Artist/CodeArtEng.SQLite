@@ -492,7 +492,7 @@ namespace CodeArtEng.SQLite
         /// <returns></returns>
         private bool VerifyTableExists(string tableName)
         {
-            Trace.WriteLine("Verify Table: " + tableName);
+            Debug.WriteLine("Verify Table: " + tableName);
             return GetTables().Contains(tableName, StringComparer.InvariantCultureIgnoreCase);
         }
 
