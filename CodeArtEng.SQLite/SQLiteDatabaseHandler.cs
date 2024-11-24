@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 
 namespace CodeArtEng.SQLite
 {
@@ -85,7 +86,7 @@ namespace CodeArtEng.SQLite
         protected void SwitchToRemoteDatabase(bool readOnly = false)
         {
             DisconnectDatabase();
-            SetSQLPath(DatabaseFilePath, readOnly); 
+            SetSQLPath(DatabaseFilePath, readOnly);
             IsLocalSyncActive = false;
         }
 
@@ -139,7 +140,38 @@ namespace CodeArtEng.SQLite
         {
             string folder = Path.GetDirectoryName(Path.GetFullPath(LocalFilePath));
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-            File.Copy(DatabaseFilePath, LocalFilePath, true);
+            FileCopyNoLock(DatabaseFilePath, LocalFilePath);
+        }
+
+        /// <summary>
+        /// Copy file using file stream without locking file.
+        /// </summary>
+        /// <param name="sourceFile"></param>
+        /// <param name="destFile"></param>
+        /// <exception cref="Exception"></exception>
+        private void FileCopyNoLock(string sourceFile, string destFile)
+        {
+            try
+            {
+                const int bufferSize = 81920; // 80KB buffer
+                using (FileStream sourceStream = new FileStream(sourceFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    using (FileStream destinationStream = new FileStream(destFile, FileMode.OpenOrCreate, FileAccess.Write))
+                    {
+                        var buffer = new byte[bufferSize];
+                        int bytesRead;
+                        var totalBytes = sourceStream.Length;
+                        var bytesWritten = 0L;
+
+                        while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            destinationStream.Write(buffer, 0, bytesRead);
+                            bytesWritten += bytesRead;
+                        }
+                    }
+                }    
+            }
+            catch (Exception ex) { throw new Exception("File copy failed! " + ex.Message); }
         }
     }
 }

@@ -348,7 +348,7 @@ namespace CodeArtEng.SQLite.Tests
                 //Failed at ~700ms with step retries set to 10
                 //Failed at ~700ms with busy timeout set to
                 //Default timeout had no effect on locked database retry
-                //StepRetries = 10, BusyTimeout - 100 - Test time 3.2 seconds
+                //StepRetries = 10, BusyTimeout = 100 - Test time 3.2 seconds
                 db2.SQLStepRetries = 10;
                 db2.SQLBusyTimeout = 500;
                 //db2.DBConnection.DefaultTimeout = 100;
