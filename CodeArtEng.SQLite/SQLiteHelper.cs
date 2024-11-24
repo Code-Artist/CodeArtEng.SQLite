@@ -230,7 +230,8 @@ namespace CodeArtEng.SQLite
         {
             if (IsConnected) return;
             if (string.IsNullOrEmpty(DatabaseFilePath)) throw new ArgumentNullException("Database path not defined!");
-            if (!IsDatabaseOnline()) throw new AccessViolationException("Database not exists or not reachable!");
+            if (!IsDatabaseOnline())
+                throw new AccessViolationException("Database not exists or not reachable!");
 
             DBConnection.ParseViaFramework = true;
             DBConnection.Open();
@@ -750,7 +751,7 @@ namespace CodeArtEng.SQLite
                 foreach (var r in results)
                 {
                     string value = indexTable.GetValueById(Convert.ToInt32(i.Property.GetValue(r)));
-                    i.SetDBValue(r, value);
+                    if (!string.IsNullOrEmpty(value)) i.SetDBValue(r, value);
                 }
             }
 
