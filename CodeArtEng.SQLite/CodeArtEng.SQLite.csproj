@@ -2,12 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <Version>1.15.0</Version>
+    <Version>1.13.6</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Copyright>Copyright ©  Code Art Enginnering 2024</Copyright>
     <PackageProjectUrl>www.codearteng.com</PackageProjectUrl>
     <PackageIcon>CAELogoSmall.png</PackageIcon>
-    <PackageReleaseNotes>Remove unnecessary trace log.</PackageReleaseNotes>
+    <PackageReleaseNotes>Optimization. Create database in WAL mode.
+NEW: DeleteFromDatabase</PackageReleaseNotes>
     <PackAsTool>False</PackAsTool>
     <RepositoryUrl>https://github.com/Code-Artist/CodeArtEng.SQLite</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
