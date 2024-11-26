@@ -156,7 +156,6 @@ namespace CodeArtEng.SQLite.Tests
         public string[] ArrayData { get; set; }
         [SQLName("ArrayIntValue")]
         public int[] ItemValue { get; set; }
-
         public string[] EmptyData { get; set; } = null;
     }
 
@@ -406,10 +405,16 @@ namespace CodeArtEng.SQLite.Tests
                     i.ArrayData[y] = GenerateString(10);
                     i.ItemValue[y] = r.Next(1000);
                 }
+                i.EmptyData = new string[2] {"A", "B"}; 
                 items.Add(i);
             }
             WriteToDatabase(items.ToArray());
             return items.ToArray();
+        }
+
+        public void DeleteItemsFromArrayDataTable(int itemIndex)
+        {
+            DeleteFromDatabase("WHERE ID == 1", "ArrayData");
         }
 
         #endregion

@@ -186,16 +186,35 @@ namespace CodeArtEng.SQLite
             if (string.IsNullOrEmpty(databaseFilePath)) throw new ArgumentNullException(nameof(databaseFilePath));
             ConnectString = @"Data Source=" + databaseFilePath + ";Version=3;";
 
-            if (!File.Exists(DatabaseFilePath) && createFile)
-            {
-                File.WriteAllBytes(DatabaseFilePath, new byte[0]);
-            }
-
             ReadOnly = readOnly;
             if (ReadOnly) ConnectString += "Read Only=True;";
             ConnectStringReadOnly = ConnectString + "Read Only=True;";
             DBConnection.ConnectionString = ConnectString;
+
+            if (!File.Exists(DatabaseFilePath) && createFile) InitializeDatabase();
         }
+
+        /// <summary>
+        /// Create database when target DB file not exists.
+        /// </summary>
+        private void InitializeDatabase()
+        {
+            try
+            {
+                DBConnection.Open();
+                KeepDatabaseOpen = true;
+                ExecuteNonQuery("PRAGMA auto_vacuum = INCREMENTAL");
+                ExecuteNonQuery("PRAGMA journal_mode = WAL");
+                ExecuteNonQuery("PRAGMA synchronous = NORMAL");
+                ExecuteNonQuery("PRAGMA journal_size_limit = 65536"); //WAL size 64KB
+            }
+            finally
+            {
+                KeepDatabaseOpen = false;
+                DBConnection.Close();
+            }
+        }
+
 
         /// <summary>
         /// Connect to database. Do nothing if connection is already established.
@@ -230,8 +249,7 @@ namespace CodeArtEng.SQLite
         {
             if (IsConnected) return;
             if (string.IsNullOrEmpty(DatabaseFilePath)) throw new ArgumentNullException("Database path not defined!");
-            if (!IsDatabaseOnline())
-                throw new AccessViolationException("Database not exists or not reachable!");
+            if (!IsDatabaseOnline()) throw new AccessViolationException("Database not exists or not reachable!");
 
             DBConnection.ParseViaFramework = true;
             DBConnection.Open();
@@ -341,6 +359,11 @@ namespace CodeArtEng.SQLite
                 //User implemented callback
                 performTransactions();
                 transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw; 
             }
             finally
             {
@@ -1064,12 +1087,7 @@ namespace CodeArtEng.SQLite
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="senders"></param>
-        protected void DeleteFromDatabaseByID<T>(params T[] senders)
-        {
-            DeleteFromDatabaseByID(senders, string.Empty);
-        }
-
-        protected void DeleteFromDatabaseByID<T>(T[] senders, string tableName)
+        protected void DeleteFromDatabaseByID<T>(T[] senders, string tableName = null)
         {
             Type senderType = senders.First().GetType();
             SQLTableInfo senderTable = GetTableInfo(senderType, tableName);
@@ -1090,6 +1108,28 @@ namespace CodeArtEng.SQLite
                 //Delete parent instance
                 ExecuteNonQuery($"DELETE FROM {senderTable.TableName} WHERE {senderTable.PrimaryKey.SQLName} == {pKey}");
             }
+        }
+
+        /// <summary>
+        /// Conditional delete table from database 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="whereStatement"></param>
+        protected void DeleteFromDatabase<T>(string whereStatement, string tableName = null)
+        {
+            if (string.IsNullOrEmpty(whereStatement)) throw new ArgumentNullException("whereStatement");
+            SQLTableInfo senderTable = GetTableInfo(typeof(T), tableName);
+            DeleteFromDatabase(whereStatement, senderTable.TableName);
+        }
+
+        /// <summary>
+        /// Conditional delete table from defined table name.
+        /// </summary>
+        /// <param name="whereStatement"></param>
+        /// <param name="tableName"></param>
+        protected void DeleteFromDatabase(string whereStatement, string tableName)
+        {
+            ExecuteNonQuery($"DELETE FROM {tableName} {whereStatement}");
         }
 
         #endregion

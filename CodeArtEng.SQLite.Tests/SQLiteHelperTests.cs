@@ -474,6 +474,15 @@ namespace CodeArtEng.SQLite.Tests
             }
         }
 
+        [Test, Order(72)]
+        public void A_DeleteTableArrayItem()
+        {
+            DB.DeleteItemsFromArrayDataTable(1);
+            ArrayTableReadback = DB.ReadTableWithArrays();
+            TableWithArray t = ArrayTableReadback.FirstOrDefault(n => n.ID == 1);
+            Assert.That(t.ArrayData.Count, Is.EqualTo(0));
+        }
+
         #endregion
 
         #region [ 8 - Unique Constraint with Primary Key ]
