@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Data.Common;
+using System.Data.SQLite;
 
 //ToDo: TestCase: Read from tables which have more columns than class
 namespace CodeArtEng.SQLite.Tests
@@ -521,6 +523,16 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(item.ID, Is.EqualTo(pKey));
         }
 
+
+        #endregion
+
+        #region [ 999 - Backup Database ]
+
+        [Test]
+        public void TestBackupDatabase()
+        {
+            DB.BackupDatabase("Backup.db");
+        }
 
         #endregion
     }

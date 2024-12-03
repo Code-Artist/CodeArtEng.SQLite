@@ -363,7 +363,7 @@ namespace CodeArtEng.SQLite
             catch
             {
                 transaction.Rollback();
-                throw; 
+                throw;
             }
             finally
             {
@@ -518,6 +518,27 @@ namespace CodeArtEng.SQLite
         {
             Debug.WriteLine("Verify Table: " + tableName);
             return GetTables().Contains(tableName, StringComparer.InvariantCultureIgnoreCase);
+        }
+
+        /// <summary>
+        /// Check if database Journal Mode is configured as WAL (Write-Ahead Logging).
+        /// </summary>
+        /// <returns></returns>
+        private bool IsWalMode()
+        {
+            try
+            {
+                return ExecuteScalar("PRAGMA journal_mode")?.ToString() == "wal";
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Perform Full Checkpoint for WAL Mode database.
+        /// </summary>
+        private void CheckPoint()
+        {
+            if (IsWalMode()) ExecuteNonQuery("PRAGMA wal_checkpoint(FULL)");
         }
 
         #endregion
@@ -1169,7 +1190,7 @@ namespace CodeArtEng.SQLite
 
         #region [ Create Table ]
 
-        protected string CreateArrayTable(SQLDataType sqlDataType, string tableName)
+        private string CreateArrayTable(SQLDataType sqlDataType, string tableName)
         {
             Type primitiveType;
             switch (sqlDataType)
@@ -1184,7 +1205,7 @@ namespace CodeArtEng.SQLite
             return CreateTable(tableType, tableName);
         }
 
-        protected string CreateTable(Type tableType, string tableName)
+        private string CreateTable(Type tableType, string tableName)
         {
             string createStatement = GetCreateStatement(tableType, tableName);
             ExecuteNonQuery(createStatement);
@@ -1234,6 +1255,34 @@ namespace CodeArtEng.SQLite
         private string GetCreateParam(SQLTableItem item)
         {
             return $"\"{item.SQLName}\" {item.DataType}{(item.IsUniqueColumn ? " UNIQUE" : "")},";
+        }
+
+        #endregion
+
+        #region [ Backup ]
+
+        /// <summary>
+        /// Backup database to defined backup file path.
+        /// </summary>
+        /// <param name="backupFilePath"></param>
+        protected void BackupDatabaseTo(string backupFilePath)
+        {
+            string dbString = @"Data Source=" + backupFilePath + ";Version=3;";
+            using (SQLiteConnection destDatabase = new SQLiteConnection(dbString))
+            {
+                try
+                {
+                    CheckPoint();
+                    Connect();
+                    try
+                    {
+                        destDatabase.Open();
+                        DBConnection.BackupDatabase(destDatabase, "main", "main", -1, null, 2000);
+                    }
+                    finally { destDatabase.Close(); }
+                }
+                finally { Disconnect(); }
+            }
         }
 
         #endregion
