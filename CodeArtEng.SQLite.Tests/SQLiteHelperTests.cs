@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Data.Common;
 using System.Data.SQLite;
+using System.Threading;
 
 //ToDo: TestCase: Read from tables which have more columns than class
 namespace CodeArtEng.SQLite.Tests
@@ -340,33 +341,38 @@ namespace CodeArtEng.SQLite.Tests
             DB.WriteMiscKey("Dummy"); //Ensure table is created.
 
             //Simulate lock database for 2 seconds.
-            Task t = new Task(LockDatabase);
-            t.Start();
-            SQLiteMockedDB db2 = new SQLiteMockedDB("TestDB.db");
-            DateTime tStart = DateTime.Now;
-            try
+            using (Task t = new Task(LockDatabase))
             {
-                //Failed at ~500ms when all values set to 0
-                //Failed at ~700ms with step retries set to 10
-                //Failed at ~700ms with busy timeout set to
-                //Default timeout had no effect on locked database retry
-                //StepRetries = 10, BusyTimeout = 100 - Test time 3.2 seconds
-                db2.SQLStepRetries = 10;
-                db2.SQLBusyTimeout = 500;
-                //db2.DBConnection.DefaultTimeout = 100;
+                t.Start();
+                using (SQLiteMockedDB db2 = new SQLiteMockedDB("TestDB.db"))
+                {
+                    DateTime tStart = DateTime.Now;
+                    try
+                    {
+                        //Failed at ~500ms when all values set to 0
+                        //Failed at ~700ms with step retries set to 10
+                        //Failed at ~700ms with busy timeout set to
+                        //Default timeout had no effect on locked database retry
+                        //StepRetries = 10, BusyTimeout = 100 - Test time 3.2 seconds
+                        db2.SQLStepRetries = 10;
+                        db2.SQLBusyTimeout = 500;
+                        //db2.DBConnection.DefaultTimeout = 100;
 
-                System.Threading.Thread.Sleep(500); //Delay make sure DB is locked
-                db2.WriteMiscKey(nameof(SimulateLockedDatabase));
+                        System.Threading.Thread.Sleep(500); //Delay make sure DB is locked
+                        db2.WriteMiscKey(nameof(SimulateLockedDatabase));
 
-            }
-            catch (Exception ex)
-            {
-                Assert.Fail(ex.Message);
-            }
-            finally
-            {
-                double seconds = (DateTime.Now - tStart).TotalSeconds;
-                Assert.That(seconds, Is.GreaterThan(1.5));
+                    }
+                    catch (Exception ex)
+                    {
+                        Assert.Fail(ex.Message);
+                    }
+                    finally
+                    {
+                        double seconds = (DateTime.Now - tStart).TotalSeconds;
+                        Assert.That(seconds, Is.GreaterThan(1.5));
+                    }
+                    t.Wait();
+                }
             }
         }
 
@@ -528,10 +534,31 @@ namespace CodeArtEng.SQLite.Tests
 
         #region [ 999 - Backup Database ]
 
-        [Test]
+        [Test, Order(900)]
         public void TestBackupDatabase()
         {
-            DB.BackupDatabase("Backup.db");
+            string backupPath = "Backup.db";
+            File.Delete(backupPath);
+            DB.BackupDatabaseTo(backupPath);
+        }
+
+        [Test, Order(901)]
+        public void TestLockedDatabase()
+        {
+            Task t = new Task(LockDatabase);
+            t.Start();
+            string backupPath = "Backup2.db";
+            File.Delete(backupPath);
+            DB.BackupDatabaseTo(backupPath);
+        }
+
+        [Test]
+        public void TestBackupLargeDatabase()
+        {
+            SQLiteMockedDB db = new SQLiteMockedDB("TPM-SQLite-2024.db");
+            string backupPath = "Backup2.db";
+            File.Delete(backupPath);
+            db.BackupDatabaseTo(backupPath);
         }
 
         #endregion

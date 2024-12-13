@@ -212,8 +212,6 @@ namespace CodeArtEng.SQLite.Tests
         public new string CreateTable<T>(string tableName = null) => base.CreateTable<T>(tableName);
         public new IndexTable[] IndexTable(string tableName) => base.IndexTable(tableName);
 
-        public void BackupDatabase(string destPath) { base.BackupDatabaseTo(destPath); }
-
         #endregion
 
         public string GenerateString(int length)

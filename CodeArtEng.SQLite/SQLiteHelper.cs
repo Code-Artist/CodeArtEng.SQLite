@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using System.Threading;
 
 //ToDo: Read and Write Async
 
@@ -1261,30 +1262,82 @@ namespace CodeArtEng.SQLite
 
         #region [ Backup ]
 
+        public uint BackupRetries { get; set; } = 10;
+        public int BackupRetryInterval_ms { get; set; } = 1000;
+
         /// <summary>
         /// Backup database to defined backup file path.
         /// </summary>
         /// <param name="backupFilePath"></param>
-        protected void BackupDatabaseTo(string backupFilePath)
+        public void BackupDatabaseTo(string backupFilePath)
         {
-            string dbString = @"Data Source=" + backupFilePath + ";Version=3;";
-            using (SQLiteConnection destDatabase = new SQLiteConnection(dbString))
+            if (string.IsNullOrWhiteSpace(backupFilePath))
+                throw new ArgumentException("Backup file path cannot be null or empty.", nameof(backupFilePath));
+
+            try
             {
-                try
+                for (int retryCount = 0; retryCount < BackupRetries; retryCount++)
                 {
-                    CheckPoint();
-                    Connect();
                     try
                     {
-                        destDatabase.Open();
-                        DBConnection.BackupDatabase(destDatabase, "main", "main", -1, null, 2000);
+                        CheckPoint();
+                        Connect();
+
+                        // Use using statement to ensure proper resource management
+                        using (var backupDB = new SQLiteDBLite(backupFilePath))
+                        {
+                            // Perform backup with a timeout mechanism
+                            backupDB.Connect();
+                            DBConnection.BackupDatabase(backupDB.DBConnection, "main", "main", -1, null, 0);
+                            Trace.WriteLine($"Database successfully backed up to {backupFilePath}");
+                            return;
+                        }
                     }
-                    finally { destDatabase.Close(); }
+                    catch (Exception ex)
+                    {
+                        // Log specific error details
+                        Trace.WriteLine($"[WARNING]: Backup attempt {retryCount + 1} failed: {ex.Message}");
+
+                        // If it's the last retry, rethrow
+                        if (retryCount == BackupRetries)
+                        {
+                            throw new InvalidOperationException(
+                                $"Failed to backup database to {backupFilePath} after {BackupRetries + 1} attempts.",
+                                ex);
+                        }
+
+                        // Wait before retrying
+                        Thread.Sleep(BackupRetryInterval_ms);
+                    }
+                    finally
+                    {
+                        // Ensure database is disconnected after each attempt
+                        Disconnect();
+                    }
                 }
-                finally { Disconnect(); }
+            }
+            catch (Exception ex)
+            {
+                // Additional top-level error logging if needed
+                Trace.WriteLine($"Unhandled error during database backup: {ex.Message}");
+                throw;
             }
         }
 
         #endregion
+    }
+
+
+    /// <summary>
+    /// Minimum concreate class for internal usage
+    /// </summary>
+    internal class SQLiteDBLite : SQLiteHelper
+    {
+        public SQLiteDBLite(string databasePath) : base()
+        {
+            SetSQLPath(databasePath);
+            DBConnection.Open();
+        }
+
     }
 }

@@ -140,7 +140,12 @@ namespace CodeArtEng.SQLite
         {
             string folder = Path.GetDirectoryName(Path.GetFullPath(LocalFilePath));
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-            FileCopyNoLock(DatabaseFilePath, LocalFilePath);
+            //FileCopyNoLock(DatabaseFilePath, LocalFilePath);
+
+            using (SQLiteDBLite sourceDB = new SQLiteDBLite(DatabaseFilePath))
+            {
+                sourceDB.BackupDatabaseTo(LocalFilePath);
+            }
         }
 
         /// <summary>
