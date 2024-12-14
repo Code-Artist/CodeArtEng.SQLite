@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <Version>1.13.6</Version>
+    <Version>1.15.0.100-Debug</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Copyright>Copyright ©  Code Art Enginnering 2024</Copyright>
     <PackageProjectUrl>www.codearteng.com</PackageProjectUrl>
