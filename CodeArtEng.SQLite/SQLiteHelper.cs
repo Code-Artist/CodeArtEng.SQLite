@@ -192,13 +192,13 @@ namespace CodeArtEng.SQLite
             ConnectStringReadOnly = ConnectString + "Read Only=True;";
             DBConnection.ConnectionString = ConnectString;
 
-            if (!File.Exists(DatabaseFilePath) && createFile) InitializeDatabase();
+            if (!File.Exists(DatabaseFilePath) && createFile) CreateDatabase();
         }
 
         /// <summary>
         /// Create database when target DB file not exists.
         /// </summary>
-        private void InitializeDatabase()
+        private void CreateDatabase()
         {
             try
             {
@@ -1261,18 +1261,18 @@ namespace CodeArtEng.SQLite
         #endregion
 
         #region [ Backup ]
-
+        
         public uint BackupRetries { get; set; } = 10;
         public int BackupRetryInterval_ms { get; set; } = 1000;
 
         /// <summary>
-        /// Backup database to defined backup file path.
+        /// Backup current database to defined backup database file path.
         /// </summary>
-        /// <param name="backupFilePath"></param>
-        public void BackupDatabaseTo(string backupFilePath)
+        /// <param name="targetDatabaseFilePath"></param>
+        public void BackupDatabaseTo(string targetDatabaseFilePath)
         {
-            if (string.IsNullOrWhiteSpace(backupFilePath))
-                throw new ArgumentException("Backup file path cannot be null or empty.", nameof(backupFilePath));
+            if (string.IsNullOrWhiteSpace(targetDatabaseFilePath))
+                throw new ArgumentException("Backup file path cannot be null or empty.", nameof(targetDatabaseFilePath));
 
             try
             {
@@ -1284,12 +1284,12 @@ namespace CodeArtEng.SQLite
                         Connect();
 
                         // Use using statement to ensure proper resource management
-                        using (var backupDB = new SQLiteDBLite(backupFilePath))
+                        using (var targetDB = new SQLiteDBLite(targetDatabaseFilePath))
                         {
                             // Perform backup with a timeout mechanism
-                            backupDB.Connect();
-                            DBConnection.BackupDatabase(backupDB.DBConnection, "main", "main", -1, null, 0);
-                            Trace.WriteLine($"Database successfully backed up to {backupFilePath}");
+                            targetDB.Connect();
+                            DBConnection.BackupDatabase(targetDB.DBConnection, "main", "main", -1, null, 0);
+                            Trace.WriteLine($"Database successfully backed up to {targetDatabaseFilePath}");
                             return;
                         }
                     }
@@ -1302,7 +1302,68 @@ namespace CodeArtEng.SQLite
                         if (retryCount == BackupRetries)
                         {
                             throw new InvalidOperationException(
-                                $"Failed to backup database to {backupFilePath} after {BackupRetries + 1} attempts.",
+                                $"Failed to backup database to {targetDatabaseFilePath} after {BackupRetries + 1} attempts.",
+                                ex);
+                        }
+
+                        // Wait before retrying
+                        Thread.Sleep(BackupRetryInterval_ms);
+                    }
+                    finally
+                    {
+                        // Ensure database is disconnected after each attempt
+                        Disconnect();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Additional top-level error logging if needed
+                Trace.WriteLine($"Unhandled error during database backup: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Sync current database content from source database using BackupDatabase method.
+        /// </summary>
+        /// <param name="sourceDatabasePath"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public void SyncDatabaseFrom(string sourceDatabasePath)
+        {
+            if (string.IsNullOrWhiteSpace(sourceDatabasePath))
+                throw new ArgumentException("Source database path cannot be null or empty.", nameof(sourceDatabasePath));
+
+            try
+            {
+                for (int retryCount = 0; retryCount < BackupRetries; retryCount++)
+                {
+                    try
+                    {
+                        CheckPoint();
+                        // Use a separate SQLiteDBLite instance for the source database
+                        using (var sourceDB = new SQLiteDBLite(sourceDatabasePath))
+                        {
+                            // Perform backup with a timeout mechanism
+                            sourceDB.Connect();
+                            Connect(); // Connect the current database instance
+
+                            // Backup from the source database to the current database
+                            sourceDB.DBConnection.BackupDatabase(DBConnection, "main", "main", -1, null, 0);
+                            Trace.WriteLine($"Database successfully backed up from {sourceDatabasePath}");
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log specific error details
+                        Trace.WriteLine($"[WARNING]: Backup attempt {retryCount + 1} failed: {ex.Message}");
+
+                        // If it's the last retry, rethrow
+                        if (retryCount == BackupRetries)
+                        {
+                            throw new InvalidOperationException(
+                                $"Failed to backup database from {sourceDatabasePath} after {BackupRetries + 1} attempts.",
                                 ex);
                         }
 

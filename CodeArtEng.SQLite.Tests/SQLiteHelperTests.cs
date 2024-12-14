@@ -552,13 +552,11 @@ namespace CodeArtEng.SQLite.Tests
             DB.BackupDatabaseTo(backupPath);
         }
 
-        [Test]
-        public void TestBackupLargeDatabase()
+        [Test, Order(902)]
+        public void TestSyncDatabaseFrom()
         {
-            SQLiteMockedDB db = new SQLiteMockedDB("TPM-SQLite-2024.db");
-            string backupPath = "Backup2.db";
-            File.Delete(backupPath);
-            db.BackupDatabaseTo(backupPath);
+            SQLiteMockedDB mockedDB = new SQLiteMockedDB("Backup3.db");
+            mockedDB.SyncDatabaseFrom(TestDBPath);
         }
 
         #endregion
