@@ -1109,6 +1109,17 @@ namespace CodeArtEng.SQLite
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="senders"></param>
+        protected void DeleteFromDatabaseByID<T>(params T[] senders)
+        {
+            DeleteFromDatabaseByID(senders, string.Empty);
+        }
+
+        /// <summary>
+        /// Delete items and it's child items from database by primary key. 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="senders"></param>
+        /// <param name="tableName">Table name</param>
         protected void DeleteFromDatabaseByID<T>(T[] senders, string tableName = null)
         {
             Type senderType = senders.First().GetType();
