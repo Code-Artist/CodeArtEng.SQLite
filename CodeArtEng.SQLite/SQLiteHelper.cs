@@ -976,17 +976,30 @@ namespace CodeArtEng.SQLite
                 SQLTableItem[] arguments = senderTable.Columns;
                 SQLTableItem primaryKey = senderTable.PrimaryKey;
                 bool autoAssignPrimaryKey = false;
-                long pKeyID = -1;
                 string query = null;
+                long pKeyID = -1;
                 if (primaryKey != null)
                 {
-                    //ToDo: Assign primary key only possible if primary key type is INT. Allow string datatype as primary key
-                    // User is responsible to ensure primary key value is defined and it's not null
+                    Type pKeyType = primaryKey.Property.PropertyType;
+                    bool pKeyIsInteger = typeof(IConvertible).IsAssignableFrom(pKeyType) &&
+                                            pKeyType.IsValueType && pKeyType.IsPrimitive;
+                    var pKeyValue = primaryKey.Property.GetValue(item);
 
-                    // Include primary keys in query if value is not 0
-                    pKeyID = (int)primaryKey.Property.GetValue(item);
-                    if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
-                    else autoAssignPrimaryKey = true;
+                    if (pKeyIsInteger)
+                    {
+                        // Include primary keys in query if value is not 0
+                        pKeyID = (int)pKeyValue;
+                        if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
+                        else autoAssignPrimaryKey = true;
+                    }
+                    else
+                    {
+                        // User is responsible to ensure primary key value is defined and it's not null
+                        string pKeyStr = pKeyValue as string;
+                        if (string.IsNullOrEmpty(pKeyStr)) throw new ArgumentException($"{senderTable.Name}: Primary key value not defined!");
+                        arguments = arguments.Append(primaryKey).ToArray();
+                        autoAssignPrimaryKey = false;
+                    }
                 }
 
                 //Query without primary key, safe to use INSERT or REPLACE Statement
@@ -1023,7 +1036,7 @@ namespace CodeArtEng.SQLite
                 Command.Parameters.AddRange(parameters.ToArray());
                 int rowChanged = ExecuteNonQuery(query); //ToDo: Unqiue Constraints may cause existing row get overwrite with different primary key
 
-                //Assign Primary Key
+                //Assign Primary Key, only for integer or long type.
                 if (autoAssignPrimaryKey && rowChanged == 1)
                 {
                     //Primary key value is 0, read assigned primary key value from database.

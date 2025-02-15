@@ -12,6 +12,7 @@ using System.Data.SQLite;
 using System.Threading;
 
 //ToDo: TestCase: Read from tables which have more columns than class
+//ToDo: TestCase: Test read / write from table with string type primary key.
 namespace CodeArtEng.SQLite.Tests
 {
     //Test Cases:

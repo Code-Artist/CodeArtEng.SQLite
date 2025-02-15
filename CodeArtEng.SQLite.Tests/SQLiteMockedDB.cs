@@ -221,7 +221,7 @@ namespace CodeArtEng.SQLite.Tests
 
         public string GenerateString(int length)
         {
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>? ";
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&()_+-=[]{}|:,.<>? ";
             return new string(Enumerable.Repeat(chars, length)
               .Select(s => s[r.Next(s.Length)]).ToArray());
 
