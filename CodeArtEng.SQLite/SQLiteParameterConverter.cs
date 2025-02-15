@@ -6,11 +6,40 @@ using System.Linq;
 
 namespace CodeArtEng.SQLite
 {
+    /// <summary>
+    /// Exception thrown when potential SQL injection attempts are detected.
+    /// </summary>
+    /// <remarks>
+    /// This exception is thrown when the converter detects potentially malicious patterns
+    /// in the WHERE clause, such as attempts to execute multiple statements or use dangerous SQL commands.
+    /// </remarks>
     public class SqlInjectionException : Exception
     {
         public SqlInjectionException(string message) : base(message) { }
     }
 
+    /// <summary>
+    /// Provides functionality to safely convert SQL WHERE clauses into parameterized queries for SQLite.
+    /// This class helps prevent SQL injection attacks by converting raw WHERE clause strings into
+    /// parameter-based queries with proper value handling and validation.
+    /// </summary>
+    /// <remarks>
+    /// The converter supports:
+    /// <list type="bullet">
+    ///   <item><description>Basic comparison operators (=, !=, &lt;, &gt;, &lt;=, &gt;=)</description></item>
+    ///   <item><description>Logical operators (AND, OR)</description></item>
+    ///   <item><description>String values (quoted)</description></item>
+    ///   <item><description>Numeric values (integers and decimals)</description></item>
+    ///   <item><description>NULL values</description></item>
+    /// </list>
+    /// 
+    /// Example usage:
+    /// <code>
+    /// string whereClause = "age >= 18 AND name = 'John'";
+    /// var result = SqlParameterConverter.ConvertWhereToParameters(whereClause);
+    /// // Use result.ProcessedWhere and result.Parameters in your SQLite command
+    /// </code>
+    /// </remarks>
     internal class SqlParameterConverter
     {
         private static readonly HashSet<string> ValidOperators = new HashSet<string>
@@ -23,7 +52,59 @@ namespace CodeArtEng.SQLite
             "AND", "OR"
         };
 
-
+        /// <summary>
+        /// Converts a raw WHERE clause string into a parameterized query with SQLite parameters.
+        /// </summary>
+        /// <param name="whereClause">The raw WHERE clause to convert. Can include multiple conditions joined by AND/OR.</param>
+        /// <returns>
+        /// A tuple containing:
+        /// <list type="bullet">
+        ///   <item><description>ProcessedWhere: The processed WHERE clause with parameters (@param1, @param2, etc.)</description></item>
+        ///   <item><description>Parameters: List of SQLiteParameter objects containing the parameter values</description></item>
+        /// </list>
+        /// </returns>
+        /// <exception cref="SqlInjectionException">
+        /// Thrown when potential SQL injection attempts are detected, including:
+        /// <list type="bullet">
+        ///   <item><description>Multiple SQL statements (using semicolons)</description></item>
+        ///   <item><description>Dangerous SQL commands (DROP, DELETE, etc.)</description></item>
+        ///   <item><description>Comment injection attempts</description></item>
+        ///   <item><description>Invalid identifier names</description></item>
+        ///   <item><description>Malformed WHERE clause structure</description></item>
+        /// </list>
+        /// </exception>
+        /// <exception cref="ArgumentException">Thrown when the input contains invalid numeric values.</exception>
+        /// <example>
+        /// Simple usage:
+        /// <code>
+        /// string whereClause = "age >= 18 AND name = 'John'";
+        /// var (processedWhere, parameters) = SqlParameterConverter.ConvertWhereToParameters(whereClause);
+        /// 
+        /// using (var command = new SQLiteCommand(connection))
+        /// {
+        ///     command.CommandText = $"SELECT * FROM users WHERE {processedWhere}";
+        ///     command.Parameters.AddRange(parameters.ToArray());
+        ///     // Execute command...
+        /// }
+        /// </code>
+        /// 
+        /// Handling exceptions:
+        /// <code>
+        /// try
+        /// {
+        ///     var result = SqlParameterConverter.ConvertWhereToParameters(whereClause);
+        ///     // Use result...
+        /// }
+        /// catch (SqlInjectionException ex)
+        /// {
+        ///     Console.WriteLine($"SQL Injection attempt detected: {ex.Message}");
+        /// }
+        /// catch (Exception ex)
+        /// {
+        ///     Console.WriteLine($"Unexpected error: {ex.Message}");
+        /// }
+        /// </code>
+        /// </example>
         public static (string ProcessedWhere, List<SQLiteParameter> Parameters) ConvertWhereToParameters(string whereClause)
         {
             if (string.IsNullOrEmpty(whereClause))

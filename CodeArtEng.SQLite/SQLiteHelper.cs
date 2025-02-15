@@ -727,6 +727,7 @@ namespace CodeArtEng.SQLite
             ReadOpID = DateTime.Now.Ticks;
             bool keepDBOpenFlag = KeepDatabaseOpen;
             KeepDatabaseOpen = true;
+
             //NOTE: Cannot use transaction here, switching database will cause transaction closed.
             try
             {
@@ -1020,7 +1021,7 @@ namespace CodeArtEng.SQLite
                 // Execute SQL query for current table
                 Command.Parameters.Clear();
                 Command.Parameters.AddRange(parameters.ToArray());
-                int rowChanged = ExecuteNonQuery(query); //ToDo: Unqiue Constraints may cause existing row get overwrite with differnet primary key
+                int rowChanged = ExecuteNonQuery(query); //ToDo: Unqiue Constraints may cause existing row get overwrite with different primary key
 
                 //Assign Primary Key
                 if (autoAssignPrimaryKey && rowChanged == 1)

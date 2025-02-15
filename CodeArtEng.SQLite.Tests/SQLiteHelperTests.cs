@@ -412,9 +412,9 @@ namespace CodeArtEng.SQLite.Tests
         [Test, Order(50)]
         public void ReadFromNonExistingTable()
         {
-            //ToDo: Fail when table not found during read opoeration
             SQLiteMockedDB dbReadonly = new SQLiteMockedDB(TestDBPath, isReadOnly: true, createFile: true);
-            dbReadonly.ReadFromTableWithPrimaryKey("C_TableWithPrimaryKey2");
+            TableWithPrimaryKey[] results = dbReadonly.ReadFromTableWithPrimaryKey("C_TableWithPrimaryKey2");
+            Assert.That(results, Is.Null);
         }
 
         [Test, Order(51)]
