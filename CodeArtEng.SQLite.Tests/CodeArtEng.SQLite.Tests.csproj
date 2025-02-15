@@ -134,7 +134,6 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
-    <Content Include="ILLink\ILLink.Descriptors.LibraryBuild.xml" />
     <Content Include="TestDB.db" />
     <Content Include="TestSubTable.db">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

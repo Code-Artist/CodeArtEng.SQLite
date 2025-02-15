@@ -12,7 +12,6 @@ using System.Data.SQLite;
 using System.Threading;
 
 //ToDo: TestCase: Read from tables which have more columns than class
-//ToDo: TestCase: Test read / write from table with string type primary key.
 namespace CodeArtEng.SQLite.Tests
 {
     //Test Cases:
@@ -230,6 +229,42 @@ namespace CodeArtEng.SQLite.Tests
                 TableWithPrimaryKey[] r = DB.ReadTableWithPrimaryKey($"; DROP TABLE TableWithPrimaryKey;");
             });
             Assert.That(DB.TableExists(nameof(TableWithPrimaryKey)), Is.True);
+        }
+
+
+        #endregion
+
+        #region [ 100 - Table with String Primary Key ]
+
+        int TbsLength = 20;
+        TableWithStringPrimaryKey[] Source2, ReadBack2;
+
+        [Test, Order(100)]
+        public void PKS_ReadTableNotExists()
+        {
+            ReadBack2 = DB.ReadTableWithStringPrimaryKey();
+            Assert.That(ReadBack2.Length, Is.EqualTo(0));
+        }
+
+        [Test, Order(101)]
+        public void PKS_WriteTableWithStringPrimaryKey()
+        {
+            Source2 = DB.WriteTableWithStringPrimaryKey(TbsLength);
+            Assert.That(Source2.Length, Is.EqualTo(TbsLength));
+            Assert.That(Source2.Select(n => n.ID).Distinct().Count() == TbsLength);
+        }
+
+        [Test, Order(102)]
+        public void PKS_ReadTableWithStringPrimaryKey()
+        {
+            ReadBack2 = DB.ReadTableWithStringPrimaryKey();
+            Assert.That(ReadBack2.Length, Is.EqualTo(Source2.Length));
+        }
+
+        [Test, Order(103)]
+        public void PKS_WriteItemWithoutPrimaryKey_ArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() => { DB.UpdateTableWithStringPrimaryKey(new TableWithStringPrimaryKey() { Name = "Test" }); });
         }
 
 

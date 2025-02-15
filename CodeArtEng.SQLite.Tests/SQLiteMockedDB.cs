@@ -55,6 +55,13 @@ namespace CodeArtEng.SQLite.Tests
 
     #endregion
 
+    public class TableWithStringPrimaryKey
+    {
+        [PrimaryKey]
+        public string ID { get; set; }
+        public string Name { get; set; }
+    }
+
     #region [ Source - Split Table ]
     /// <summary>
     /// DB test table, data stored in separated database
@@ -272,6 +279,37 @@ namespace CodeArtEng.SQLite.Tests
         {
             foreach (TableWithPrimaryKey item in items)
                 ExecuteNonQuery($"DELETE FROM TableWithPrimaryKey WHERE ID == {item.ID}");
+        }
+
+        #endregion
+
+        #region [ Table With String Primary Key ]
+
+        public TableWithStringPrimaryKey[] WriteTableWithStringPrimaryKey(int length)
+        {
+            List<TableWithStringPrimaryKey> results = new List<TableWithStringPrimaryKey>();
+            for (int x = 0; x < length; x++)
+            {
+                TableWithStringPrimaryKey i = new TableWithStringPrimaryKey()
+                {
+                    ID = GenerateString(5),
+                    Name  = GenerateString(10)
+                };
+                results.Add(i);
+            }
+
+            WriteToDatabase(results.ToArray());
+            return results.ToArray();
+        }
+
+        public TableWithStringPrimaryKey[] ReadTableWithStringPrimaryKey()
+        {
+            return ReadFromDatabase<TableWithStringPrimaryKey>().ToArray();
+        }
+
+        public void UpdateTableWithStringPrimaryKey(params TableWithStringPrimaryKey[] items)
+        {
+            WriteToDatabase(items);
         }
 
         #endregion

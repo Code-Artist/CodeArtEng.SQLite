@@ -996,7 +996,7 @@ namespace CodeArtEng.SQLite
                     {
                         // User is responsible to ensure primary key value is defined and it's not null
                         string pKeyStr = pKeyValue as string;
-                        if (string.IsNullOrEmpty(pKeyStr)) throw new ArgumentException($"{senderTable.Name}: Primary key value not defined!");
+                        if (string.IsNullOrEmpty(pKeyStr)) throw new ArgumentNullException($"{senderTable.Name}: Primary key value not defined!");
                         arguments = arguments.Append(primaryKey).ToArray();
                         autoAssignPrimaryKey = false;
                     }
