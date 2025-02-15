@@ -212,13 +212,23 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(indexTable.Length, Is.EqualTo(100));
         }
 
-        [Test,Order(18)]
+        [Test, Order(18)]
         public void PK_GetItemByName()
         {
             TableWithPrimaryKey i = Source[10];
-            TableWithPrimaryKey[] r = DB.ReadTableWithPrimaryKey($"where Name = '{i.Name}'");
+            TableWithPrimaryKey[] r = DB.ReadTableWithPrimaryKey($"where Name = '{i.Name}' AND Integer = {i.ValueAsInt}");
             Assert.That(r.Length, Is.EqualTo(1));
             Assert.That(r.FirstOrDefault()?.Name, Is.EqualTo(i.Name));
+        }
+
+        [Test, Order(19)]
+        public void PK_SQLInjection()
+        {
+            Assert.Throws<SqlInjectionException>(() =>
+            {
+                TableWithPrimaryKey[] r = DB.ReadTableWithPrimaryKey($"; DROP TABLE TableWithPrimaryKey;");
+            });
+            Assert.That(DB.TableExists(nameof(TableWithPrimaryKey)), Is.True);
         }
 
 

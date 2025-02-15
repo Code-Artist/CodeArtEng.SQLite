@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 //ToDo: Read and Write Async
@@ -731,7 +732,14 @@ namespace CodeArtEng.SQLite
             {
                 SQLTableInfo senderTable = GetTableInfo(typeof(T), tableName);
                 if (!senderTable.Validated) return null;
-                return ReadFromDatabaseInt<T>(senderTable, whereStatement);
+                Command.Parameters.Clear();
+                if (!string.IsNullOrEmpty(whereStatement))
+                {
+                    (string processedWhere, List<SQLiteParameter> parameters) = SqlParameterConverter.ConvertWhereToParameters(whereStatement);
+                    Command.Parameters.AddRange(parameters.ToArray());
+                    return ReadFromDatabaseInt<T>(senderTable, processedWhere);
+                }
+                return ReadFromDatabaseInt<T>(senderTable);
             }
             finally
             {
@@ -1271,7 +1279,7 @@ namespace CodeArtEng.SQLite
         #endregion
 
         #region [ Backup ]
-        
+
         public uint BackupRetries { get; set; } = 10;
         public int BackupRetryInterval_ms { get; set; } = 1000;
 

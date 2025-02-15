@@ -212,6 +212,11 @@ namespace CodeArtEng.SQLite.Tests
         public new string CreateTable<T>(string tableName = null) => base.CreateTable<T>(tableName);
         public new IndexTable[] IndexTable(string tableName) => base.IndexTable(tableName);
 
+        public bool TableExists(string tableName)
+        {
+            return GetTableSchema(tableName) != null;
+        }
+
         #endregion
 
         public string GenerateString(int length)
