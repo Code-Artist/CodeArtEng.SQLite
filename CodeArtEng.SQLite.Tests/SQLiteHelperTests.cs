@@ -212,6 +212,16 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(indexTable.Length, Is.EqualTo(100));
         }
 
+        [Test,Order(18)]
+        public void PK_GetItemByName()
+        {
+            TableWithPrimaryKey i = Source[10];
+            TableWithPrimaryKey[] r = DB.ReadTableWithPrimaryKey($"where Name = '{i.Name}'");
+            Assert.That(r.Length, Is.EqualTo(1));
+            Assert.That(r.FirstOrDefault()?.Name, Is.EqualTo(i.Name));
+        }
+
+
         #endregion
 
         #region [ 2 - Parent and Child Table ]

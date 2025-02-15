@@ -253,9 +253,9 @@ namespace CodeArtEng.SQLite.Tests
             return ReadFromDatabase<TableWithPrimaryKey>(tableName: tbName)?.ToArray();
         }
 
-        public TableWithPrimaryKey[] ReadTableWithPrimaryKey()
+        public TableWithPrimaryKey[] ReadTableWithPrimaryKey(string condition = null)
         {
-            TableWithPrimaryKey[] results = ReadFromDatabase<TableWithPrimaryKey>().ToArray();
+            TableWithPrimaryKey[] results = ReadFromDatabase<TableWithPrimaryKey>(whereStatement: condition).ToArray();
             return results;
         }
         public void UpdateTableWithPrimaryKey(params TableWithPrimaryKey[] items)
