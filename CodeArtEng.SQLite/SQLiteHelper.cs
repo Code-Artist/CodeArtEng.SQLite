@@ -1049,7 +1049,7 @@ namespace CodeArtEng.SQLite
                 {
                     autoAssignPrimaryKey = false;
 
-                    //Unique constraint violated, row with same unique constrtin exists.
+                    //Unique constraint violated, row with same unique constraint exists.
                     SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn || n.IsUniqueMulltiColumn).ToArray();
                     if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
                     string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
