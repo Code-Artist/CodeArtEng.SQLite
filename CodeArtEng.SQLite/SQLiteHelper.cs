@@ -130,7 +130,7 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Constructor. Nothing special happening here (",)
         /// </summary>
-        public SQLiteHelper() { }
+        public SQLiteHelper() { ReadOpID = DateTime.Now.Ticks; }
 
         /// <summary>
         /// Constructor with additonal retries and busy timeout input override default values.
@@ -664,18 +664,29 @@ namespace CodeArtEng.SQLite
         {
             if (string.IsNullOrEmpty(tableName)) throw new ArgumentNullException("tableName");
             IndexTableHandler result = IndexTables.FirstOrDefault(n => n.Name == tableName);
-            if (result != null) return result;
+            if (result != null)
+            {
+                ReadIndexTableContentFromDatabse(result);
+                return result;
+            }
 
-            if (!VerifyTableExists(tableName))
+            if (VerifyTableExists(tableName))
+            {
+                result = new IndexTableHandler(tableName);
+                ReadIndexTableContentFromDatabse(result);
+            }
+            else
             {
                 if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
+                {
                     CreateTable<IndexTable>(tableName);
+                    result = new IndexTableHandler(tableName);
+                }
                 else if (IsDatabaseReadOnly)
                     return null; //Database is readonly, table not exists, return nuothing.
                 else
                     throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
             }
-            result = new IndexTableHandler(tableName);
             IndexTables.Add(result);
             return result;
         }
@@ -712,7 +723,7 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Unique ID for read operation, used to optimize Index table handling.
         /// </summary>
-        private long ReadOpID = 0;
+        private long ReadOpID { get; set; } = -1;
 
         /// <summary>
         /// A generic function to retrieve data from 
@@ -867,38 +878,45 @@ namespace CodeArtEng.SQLite
             return results;
         }
 
+        //ToDo: BUG!! Write operation before read cause index table content being overwrite as last used index not read from database.
+
+        /// <summary>
+        /// Read all associated index tables from given object.
+        /// </summary>
+        /// <param name="table"></param>
+        /// <exception cref="InvalidOperationException"></exception>
         private void ReadIndexTables(SQLTableInfo table)
         {
             try
             {
                 if (table.IndexKeys.Length == 0) return;
                 foreach (SQLTableItem p in table.IndexKeys)
-                {
-                    IndexTableHandler tb = GetIndexTable(p.TableName);
-                    if (tb == null) continue;
-                    if (tb.LastReadID == ReadOpID) continue;
-                    tb.LastReadID = ReadOpID;
-
-                    tb.Items.Clear();
-                    string query = $"SELECT ID,Name from {p.TableName}";
-                    ExecuteQuery(query, processQueryResults: r =>
-                    {
-                        while (r.Read())
-                        {
-                            IndexTable t = new IndexTable()
-                            {
-                                ID = r.GetInt32(0),
-                                Name = r.GetStringEx(1)
-                            };
-                            tb.Items.Add(t);
-                        }
-                    });
-                }
+                    GetIndexTable(p.TableName);
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Read Index Table failed for table {table.TableName}!", ex);
             }
+        }
+
+        private void ReadIndexTableContentFromDatabse(IndexTableHandler table)
+        {
+            if (table.LastReadID == ReadOpID) return;
+            table.LastReadID = ReadOpID;
+            table.Items.Clear();
+            string query = $"SELECT ID,Name from {table.Name}";
+            ExecuteQuery(query, processQueryResults: r =>
+            {
+                while (r.Read())
+                {
+                    IndexTable t = new IndexTable()
+                    {
+                        ID = r.GetInt32(0),
+                        Name = r.GetStringEx(1)
+                    };
+                    table.Items.Add(t);
+                }
+            });
         }
 
         /// <summary>
@@ -939,12 +957,12 @@ namespace CodeArtEng.SQLite
                 foreach (IndexTableHandler i in IndexTables)
                 {
                     if (i.NewItems.Count == 0) continue;
-                    string query = $"INSERT OR REPLACE INTO {i.Name} (ID, Name) VALUES (@ID, @Name)";
                     foreach (IndexTable m in i.NewItems)
                     {
-                        Command.Parameters.Clear();
-                        Command.Parameters.AddWithValue("@ID", m.ID);
-                        Command.Parameters.AddWithValue("@Name", m.Name);
+                        //Command.Parameters.Clear();
+                        //Command.Parameters.AddWithValue("@ID", m.ID);
+                        //Command.Parameters.AddWithValue("@Name", m.Name);
+                        string query = $"INSERT OR REPLACE INTO {i.Name} (ID, Name) VALUES ({m.ID}, '{m.Name}')";
                         ExecuteNonQuery(query);
                     }
                     i.NewItems.Clear();
@@ -1238,6 +1256,12 @@ namespace CodeArtEng.SQLite
             return CreateTable(tableType, tableName);
         }
 
+        /// <summary>
+        /// Create table and return create statement.
+        /// </summary>
+        /// <param name="tableType"></param>
+        /// <param name="tableName"></param>
+        /// <returns></returns>
         private string CreateTable(Type tableType, string tableName)
         {
             string createStatement = GetCreateStatement(tableType, tableName);
@@ -1245,6 +1269,12 @@ namespace CodeArtEng.SQLite
             return createStatement;
         }
 
+        /// <summary>
+        /// Create table for given object type and return cretae statement
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="tableName"></param>
+        /// <returns></returns>
         protected string CreateTable<T>(string tableName = null)
         {
             return CreateTable(typeof(T), tableName);

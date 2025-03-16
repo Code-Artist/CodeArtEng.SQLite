@@ -35,7 +35,7 @@ namespace CodeArtEng.SQLite.Tests
 
         public SQLiteHelperTests()
         {
-            if (File.Exists(TestDBPath)) { File.Delete(TestDBPath); }
+            //if (File.Exists(TestDBPath)) { File.Delete(TestDBPath); }
             DB = new SQLiteMockedDB(TestDBPath);
         }
 
