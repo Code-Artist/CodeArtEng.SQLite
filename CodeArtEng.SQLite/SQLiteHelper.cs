@@ -130,7 +130,7 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Constructor. Nothing special happening here (",)
         /// </summary>
-        public SQLiteHelper() { ReadOpID = DateTime.Now.Ticks; }
+        public SQLiteHelper() { }
 
         /// <summary>
         /// Constructor with additonal retries and busy timeout input override default values.
@@ -957,12 +957,12 @@ namespace CodeArtEng.SQLite
                 foreach (IndexTableHandler i in IndexTables)
                 {
                     if (i.NewItems.Count == 0) continue;
+                    string query = $"INSERT OR REPLACE INTO {i.Name} (ID, Name) VALUES (@ID, @Name)";
                     foreach (IndexTable m in i.NewItems)
                     {
-                        //Command.Parameters.Clear();
-                        //Command.Parameters.AddWithValue("@ID", m.ID);
-                        //Command.Parameters.AddWithValue("@Name", m.Name);
-                        string query = $"INSERT OR REPLACE INTO {i.Name} (ID, Name) VALUES ({m.ID}, '{m.Name}')";
+                        Command.Parameters.Clear();
+                        Command.Parameters.AddWithValue("@ID", m.ID);
+                        Command.Parameters.AddWithValue("@Name", m.Name);
                         ExecuteNonQuery(query);
                     }
                     i.NewItems.Clear();

@@ -35,7 +35,7 @@ namespace CodeArtEng.SQLite.Tests
 
         public SQLiteHelperTests()
         {
-            //if (File.Exists(TestDBPath)) { File.Delete(TestDBPath); }
+            if (File.Exists(TestDBPath)) { File.Delete(TestDBPath); }
             DB = new SQLiteMockedDB(TestDBPath);
         }
 
@@ -137,7 +137,6 @@ namespace CodeArtEng.SQLite.Tests
         [Test, Order(11)]
         public void PK_WriteTableWithPrimaryKey()
         {
-
             Source = DB.WriteTableWithPrimaryKey(TbLength);
             Assert.That(Source.Length, Is.EqualTo(TbLength));
 
@@ -210,6 +209,11 @@ namespace CodeArtEng.SQLite.Tests
         {
             IndexTable[] indexTable = DB.IndexTable("TextAsID");
             Assert.That(indexTable.Length, Is.EqualTo(100));
+
+            //Add another 20 entry, Index table should be 120.
+            DB.WriteTableWithPrimaryKey(20);
+            indexTable = DB.IndexTable("TextAsID");
+            Assert.That(indexTable.Length, Is.EqualTo(120));
         }
 
         [Test, Order(18)]
@@ -230,6 +234,7 @@ namespace CodeArtEng.SQLite.Tests
             });
             Assert.That(DB.TableExists(nameof(TableWithPrimaryKey)), Is.True);
         }
+
 
 
         #endregion
