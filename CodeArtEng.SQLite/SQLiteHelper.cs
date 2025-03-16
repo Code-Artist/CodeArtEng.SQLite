@@ -878,8 +878,6 @@ namespace CodeArtEng.SQLite
             return results;
         }
 
-        //ToDo: BUG!! Write operation before read cause index table content being overwrite as last used index not read from database.
-
         /// <summary>
         /// Read all associated index tables from given object.
         /// </summary>
@@ -927,7 +925,7 @@ namespace CodeArtEng.SQLite
         /// <exception cref="ArgumentException"></exception>
         protected void WriteToDatabase<T>(params T[] senders) where T : class
         {
-            //ToDo: Test with generic aaray like string and int.
+            //ToDo: Test with generic array like string and int.
 
             if (typeof(T).IsGenericType)
                 throw new ArgumentException("Expected array but not generic type (List / Dictionary)! " +
