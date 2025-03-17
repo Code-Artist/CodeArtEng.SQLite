@@ -414,6 +414,12 @@ namespace CodeArtEng.SQLite
             return results.ToArray();
         }
 
+        protected bool TableExists(string tableName)
+        {
+            Command.Parameters.AddWithValue("$tableName", tableName);
+            return ExecuteScalar("SELECT name FROM sqlite_master WHERE type='table' AND name=$tableName")?.ToString() == tableName;
+        }
+
         /// <summary>
         /// Delete contents for all tables and compress database.
         /// </summary>

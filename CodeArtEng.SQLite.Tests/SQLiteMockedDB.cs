@@ -219,16 +219,16 @@ namespace CodeArtEng.SQLite.Tests
         public new string CreateTable<T>(string tableName = null) => base.CreateTable<T>(tableName);
         public new IndexTable[] IndexTable(string tableName) => base.IndexTable(tableName);
 
-        public bool TableExists(string tableName)
+        public new bool TableExists(string tableName)
         {
-            return GetTableSchema(tableName) != null;
+            return base.TableExists(tableName);
         }
 
         #endregion
 
         public string GenerateString(int length)
         {
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&()_+-=[]{}|:,.<>? ";
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
             return new string(Enumerable.Repeat(chars, length)
               .Select(s => s[r.Next(s.Length)]).ToArray());
 
