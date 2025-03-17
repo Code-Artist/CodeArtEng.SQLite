@@ -961,7 +961,7 @@ namespace CodeArtEng.SQLite
                 foreach (IndexTableHandler i in IndexTables)
                 {
                     if (i.NewItems.Count == 0) continue;
-                    string query = $"INSERT OR REPLACE INTO {i.Name} (ID, Name) VALUES (@ID, @Name)";
+                    string query = $"INSERT OR IGNORE INTO {i.Name} (ID, Name) VALUES (@ID, @Name)";
                     foreach (IndexTable m in i.NewItems)
                     {
                         Command.Parameters.Clear();
@@ -1056,7 +1056,7 @@ namespace CodeArtEng.SQLite
                 // Execute SQL query for current table
                 Command.Parameters.Clear();
                 Command.Parameters.AddRange(parameters.ToArray());
-                int rowChanged = ExecuteNonQuery(query); //ToDo: Unqiue Constraints may cause existing row get overwrite with different primary key
+                int rowChanged = ExecuteNonQuery(query); //ToDo: BUG!! Unqiue Constraints may cause existing row get overwrite with different primary key
 
                 //Assign Primary Key, only for integer or long type.
                 if (autoAssignPrimaryKey && rowChanged == 1)
@@ -1071,16 +1071,24 @@ namespace CodeArtEng.SQLite
                 {
                     autoAssignPrimaryKey = false;
 
-                    //Unique constraint violated, row with same unique constraint exists.
+                    //Unique constraint violated, row with multiple unique constraint exists.
                     SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn || n.IsUniqueMulltiColumn).ToArray();
                     if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
+
                     string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
                         string.Join(" AND ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
 
                     pKeyID = (long)ExecuteScalar(queryUniqueItem);
                     primaryKey.Property.SetValueEx(item, pKeyID);
                     arguments = arguments.Append(primaryKey).ToArray();
-                    query = query.Replace("INSERT OR IGNORE", "INSERT OR REPLACE");
+
+                    query = $"INSERT OR REPLACE INTO {tableName} " +
+                        $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
+                        $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
+                    parameters = arguments.Except(senderTable.IndexKeys).
+                            Select(p => new SQLiteParameter($"@{p.SQLName}", p.GetDBValue(item))).ToList();
+                    Command.Parameters.Clear();
+                    Command.Parameters.AddRange(parameters.ToArray());
                     ExecuteNonQuery(query);
                 }
 

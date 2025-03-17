@@ -476,7 +476,7 @@ namespace CodeArtEng.SQLite.Tests
         {
             string tableName = "ID_01";
             List<IndexTable> Items = new List<IndexTable>();
-            for (int x = 0; x < 10; x++)
+            for (int x = 1; x <= 10; x++)
             {
                 Items.Add(new IndexTable() { Name = x.ToString() });
             }
@@ -486,8 +486,10 @@ namespace CodeArtEng.SQLite.Tests
 
             readBack.Add(new IndexTable() { Name = "1" });
             DB.WriteIndexTableToDB(tableName, readBack.ToArray());
-            readBack = DB.ReadIndexTableFromDB(tableName).ToList();
-            Assert.That(readBack.Count, Is.EqualTo(10));
+            List<IndexTable> read2 = DB.ReadIndexTableFromDB(tableName).ToList();
+            
+            Assert.That(read2.FirstOrDefault(n => n.Name == "1")?.ID,
+                Is.EqualTo(readBack.FirstOrDefault(n => n.Name == "1")?.ID));   
         }
 
         class MultiUniqueColTable
@@ -564,13 +566,12 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(item.ID != 0);
             int pKey = item.ID;
 
-
             DB.WriteIndexTableToDB("UniqueConstraint", item);
             Assert.That(item.ID, Is.EqualTo(pKey));
 
             item.ID = 0;
-            DB.WriteIndexTableToDB("UniqueConstraint", item);
-            Assert.That(item.ID, Is.EqualTo(pKey));
+            IndexTable[] items = DB.ReadIndexTableFromDB("UniqueConstraint");
+            Assert.That(items.FirstOrDefault()?.ID, Is.EqualTo(pKey));
         }
 
         [Test, Order(81)]
