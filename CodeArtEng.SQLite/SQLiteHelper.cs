@@ -1056,7 +1056,9 @@ namespace CodeArtEng.SQLite
                 // Execute SQL query for current table
                 Command.Parameters.Clear();
                 Command.Parameters.AddRange(parameters.ToArray());
-                int rowChanged = ExecuteNonQuery(query); //ToDo: BUG!! Unqiue Constraints may cause existing row get overwrite with different primary key
+                // Row with same unique contraint will be ignored, resulting row change = 0
+                // Handling of such entry is done below. 
+                int rowChanged = ExecuteNonQuery(query); 
 
                 //Assign Primary Key, only for integer or long type.
                 if (autoAssignPrimaryKey && rowChanged == 1)
@@ -1069,19 +1071,23 @@ namespace CodeArtEng.SQLite
                 }
                 else if (autoAssignPrimaryKey)
                 {
+                    //Update row where columns item match unique contraint of existing entry.
                     autoAssignPrimaryKey = false;
 
-                    //Unique constraint violated, row with multiple unique constraint exists.
+                    //Retrieve columns with unique constraints
                     SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn || n.IsUniqueMulltiColumn).ToArray();
                     if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
-
                     string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
                         string.Join(" AND ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
 
+                    //Get primary key ID for item which match defined unique constraint.
                     pKeyID = (long)ExecuteScalar(queryUniqueItem);
+
+                    //Add primary key to parameter list
                     primaryKey.Property.SetValueEx(item, pKeyID);
                     arguments = arguments.Append(primaryKey).ToArray();
 
+                    // Create SQL query for update while maintain existing primary key ID.
                     query = $"INSERT OR REPLACE INTO {tableName} " +
                         $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
                         $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
