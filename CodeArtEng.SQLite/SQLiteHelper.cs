@@ -931,8 +931,6 @@ namespace CodeArtEng.SQLite
         /// <exception cref="ArgumentException"></exception>
         protected void WriteToDatabase<T>(params T[] senders) where T : class
         {
-            //ToDo: Test with generic array like string and int.
-
             if (typeof(T).IsGenericType)
                 throw new ArgumentException("Expected array but not generic type (List / Dictionary)! " +
                     "Use ToArray() to convert list to to array.");
