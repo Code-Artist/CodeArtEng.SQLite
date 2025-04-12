@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq.Expressions;
 using System.Threading;
 
 namespace CodeArtEng.SQLite
@@ -60,6 +61,7 @@ namespace CodeArtEng.SQLite
         /// <param name="remotePath"></param>
         public SQLiteDatabaseHandler(string remotePath)
         {
+            if(string.IsNullOrEmpty(remotePath)) throw new ArgumentNullException(nameof(remotePath), "Remote database path not defined!");
             DatabaseFilePath = remotePath;
             SwitchToRemoteDatabase();
         }
@@ -72,6 +74,9 @@ namespace CodeArtEng.SQLite
         /// <param name="updateIntervalMin"></param>
         public SQLiteDatabaseHandler(string remotePath, string localPath, int updateIntervalMin)
         {
+            if (string.IsNullOrEmpty(remotePath)) throw new ArgumentNullException(nameof(remotePath), "Remote database path not defined!");
+            if (string.IsNullOrEmpty(localPath)) throw new ArgumentNullException(nameof(localPath), "Local database path not defined!");
+
             DatabaseFilePath = remotePath;
             LocalFilePath = localPath;
             UpdateIntervalMinutes = updateIntervalMin;
@@ -100,7 +105,7 @@ namespace CodeArtEng.SQLite
             DisconnectDatabase();
             SetSQLPath(LocalFilePath, readOnly: true);
             IsLocalSyncActive = true;
-            if (File.Exists(LocalFilePath)) LastUpdate = File.GetCreationTime(LocalFilePath);
+            if (File.Exists(LocalFilePath)) LastUpdate = File.GetLastWriteTime(LocalFilePath);
         }
 
         /// <summary>
@@ -110,24 +115,32 @@ namespace CodeArtEng.SQLite
         protected override void Connect()
         {
             if (IsConnected) return; //Avoid reconnect keep alive database.
-            if (IsLocalSyncActive && !SuspendLocalSync)
+            if (IsLocalSyncActive)
             {
-                //Check last sync time and sync database.
-                double lastSync = (DateTime.Now - LastUpdate).TotalMinutes;
-                if (IsRemoteDatabaseOnline())
+                if (!File.Exists(LocalFilePath))
                 {
-                    //Database online, sync at defined interval
-                    if (lastSync > UpdateIntervalMinutes)
-                    {
-                        SyncDatabaseFile();
-                        LastUpdate = DateTime.Now;
-                    }
+                    SyncDatabaseFile();
+                    LastUpdate = DateTime.Now;
                 }
-                else
+                else if (!SuspendLocalSync)
                 {
-                    //Database offline, attempt to sync every 1 minutes max
-                    // set last update time to due in 1 minute
-                    LastUpdate = DateTime.Now.AddMinutes(1 - UpdateIntervalMinutes);
+                    //Check last sync time and sync database.
+                    double lastSync = (DateTime.Now - LastUpdate).TotalMinutes;
+                    if (IsRemoteDatabaseOnline())
+                    {
+                        //Database online, sync at defined interval
+                        if (lastSync > UpdateIntervalMinutes)
+                        {
+                            SyncDatabaseFile();
+                            LastUpdate = DateTime.Now;
+                        }
+                    }
+                    else
+                    {
+                        //Database offline, attempt to sync every 1 minutes max
+                        // set last update time to due in 1 minute
+                        LastUpdate = DateTime.Now.AddMinutes(1 - UpdateIntervalMinutes);
+                    }
                 }
             }//if
             base.Connect();

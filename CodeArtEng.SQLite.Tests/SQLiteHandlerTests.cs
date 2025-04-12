@@ -18,21 +18,21 @@ namespace CodeArtEng.SQLite.Tests
             File.Delete(localDBPath);
         }
 
-        [Test]
+        [Test, Order (1)]
         public void ConnectRemoteDB()
         {
             SQLiteDatabaseHandlerMocked DB = new SQLiteDatabaseHandlerMocked(remoteDBPath);
             Assert.That(DB.IsDatabaseOnline, Is.True);
         }
 
-        [Test]
+        [Test, Order(2)]
         public void RemoteDB_SwitchToLocalDB_Exception()
         {
             SQLiteDatabaseHandlerMocked DB = new SQLiteDatabaseHandlerMocked(remoteDBPath);
             Assert.Throws<InvalidOperationException>(() => { DB.SwitchToLocalDatabase(); });
         }
 
-        [Test]
+        [Test, Order(3)]
         public void RemoteDB_SwitchToRemoteDB_NOP()
         {
             SQLiteDatabaseHandlerMocked DB = new SQLiteDatabaseHandlerMocked(remoteDBPath);
@@ -41,35 +41,51 @@ namespace CodeArtEng.SQLite.Tests
             DB.SwitchToRemoteDatabase();
         }
 
-        [Test]
+        [Test, Order(4)]
         public void ConnectRemoteDB_NotExists_DatabaseOffline()
         {
             SQLiteDatabaseHandlerMocked DB = new SQLiteDatabaseHandlerMocked(dummyRemotePath);
             Assert.That(DB.IsDatabaseOnline, Is.False);
         }
 
+        [Test, Order(5)]
         public void ConnectRemoteDB_NotExists_ReadTable_Exception()
         {
             SQLiteDatabaseHandlerMocked DB = new SQLiteDatabaseHandlerMocked(dummyRemotePath);
-            Assert.Throws<SQLiteException>(() => { DB.GetTables(); });
+            Assert.Throws<AccessViolationException>(() => { DB.GetTables(); });
         }
 
-        [Test]
-        public void ConnectLocalDB_DBOnline()
+        [Test, Order(6)]
+        public void ConnectLocalDB_DBOffline()
         {
             SQLiteDatabaseHandlerMocked DB = ConnectLocalDB();
             Assert.That(DB.IsDatabaseOnline, Is.False);
         }
 
-        private SQLiteDatabaseHandlerMocked ConnectLocalDB()
+        private SQLiteDatabaseHandlerMocked ConnectLocalDB(bool deleteLocalDB = true)
         {
-            ClearLocalDB();
+            if(deleteLocalDB) ClearLocalDB();
             SQLiteDatabaseHandlerMocked DB = new SQLiteDatabaseHandlerMocked(remoteDBPath, localDBPath, 10);
             return DB;
         }
 
-        [Test]
-        public void ReadFromLocalDB()
+        [Test, Order(8)]
+        public void WriteToLocalDB_ReadOnly_SQLiteException()
+        {
+            SQLiteDatabaseHandlerMocked DB = ConnectLocalDB();
+            Assert.Throws<SQLiteException>(() => { DB.CompactDatabase(); });
+        }
+
+        [Test, Order(9)]
+        public void LocalDB_SwitchToRemote_Write()
+        {
+            SQLiteDatabaseHandlerMocked DB = ConnectLocalDB();
+            DB.SwitchToRemoteDatabase();
+            DB.CompactDatabase();
+        }
+
+        [Test, Order(10)]
+        public void ReadFromLocalDB_AutoCopy()
         {
             SQLiteDatabaseHandlerMocked DB = ConnectLocalDB();
             Assert.That(DB.GetTables().Count(), Is.GreaterThan(0));
@@ -78,20 +94,14 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That((DateTime.Now - DB.LastUpdate).TotalSeconds, Is.LessThan(1));
         }
 
-        [Test]
-        public void WriteToLocalDB_ReadOnly_SQLiteException()
+        [Test, Order(11)]
+        public void ConnectLocalDB_NoSync()
         {
-            SQLiteDatabaseHandlerMocked DB = ConnectLocalDB();
-            Assert.Throws<SQLiteException>(() => { DB.CompactDatabase(); });
+            SQLiteDatabaseHandlerMocked DB = ConnectLocalDB(deleteLocalDB: false);
+            
+            DateTime fileTime = File.GetLastWriteTime(localDBPath);
+            Assert.That(DB.GetTables().Count(), Is.GreaterThan(0));
+            Assert.That(File.GetLastWriteTime(localDBPath), Is.EqualTo(fileTime));
         }
-
-        [Test]
-        public void LocalDB_SwitchToRemote_Write()
-        {
-            SQLiteDatabaseHandlerMocked DB = ConnectLocalDB();
-            DB.SwitchToRemoteDatabase();
-            DB.CompactDatabase();
-        }
-
     }
 }
