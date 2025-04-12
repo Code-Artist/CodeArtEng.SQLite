@@ -228,7 +228,7 @@ namespace CodeArtEng.SQLite.Tests
         [Test, Order(19)]
         public void PK_SQLInjection()
         {
-            Assert.Throws<SqlInjectionException>(() =>
+            Assert.Throws<SQLInjectionException>(() =>
             {
                 TableWithPrimaryKey[] r = DB.ReadTableWithPrimaryKey($"; DROP TABLE TableWithPrimaryKey;");
             });

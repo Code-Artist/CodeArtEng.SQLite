@@ -574,6 +574,7 @@ namespace CodeArtEng.SQLite
         /// <returns></returns>
         private SQLTableInfo GetTableInfo(Type sender, string tableName = null)
         {
+            if (string.IsNullOrEmpty(tableName)) tableName = sender.SQLName();
             SQLTableInfo result = TableInfos.FirstOrDefault(n => n.TableType == sender && n.Name == tableName);
             if (result != null) return result;
 
@@ -753,7 +754,7 @@ namespace CodeArtEng.SQLite
                 Command.Parameters.Clear();
                 if (!string.IsNullOrEmpty(whereStatement))
                 {
-                    (string processedWhere, List<SQLiteParameter> parameters) = SqlParameterConverter.ConvertWhereToParameters(whereStatement);
+                    (string processedWhere, List<SQLiteParameter> parameters) = SQLiteParameterConverter.ConvertWhereToParameters(whereStatement);
                     Command.Parameters.AddRange(parameters.ToArray());
                     return ReadFromDatabaseInt<T>(senderTable, processedWhere);
                 }

@@ -118,6 +118,9 @@
     <Compile Include="..\CodeArtEng.SQLite\AttributsHandlingExtensions.cs">
       <Link>AttributsHandlingExtensions.cs</Link>
     </Compile>
+    <Compile Include="..\CodeArtEng.SQLite\SQLiteParameterConverter.cs">
+      <Link>SQLiteParameterConverter.cs</Link>
+    </Compile>
     <Compile Include="..\CodeArtEng.SQLite\SQLTableInfo.cs">
       <Link>SQLTableInfo.cs</Link>
     </Compile>
@@ -129,6 +132,7 @@
     <Compile Include="SQLiteHandlerTests.cs" />
     <Compile Include="SQLiteHelperTests.cs" />
     <Compile Include="SQLiteMockedDB.cs" />
+    <Compile Include="SQLiteParameterConverterTests.cs" />
     <Compile Include="SQLTableInfoTests.cs" />
   </ItemGroup>
   <ItemGroup>
