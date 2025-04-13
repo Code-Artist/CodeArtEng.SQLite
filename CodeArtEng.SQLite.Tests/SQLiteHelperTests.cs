@@ -301,6 +301,24 @@ namespace CodeArtEng.SQLite.Tests
             ParentTableReadback = DB.ReadParentTable();
             Assert.That(ParentTableReadback.Length, Is.EqualTo(ParentLength));
             Assert.That(ParentTableChildItems == ParentTableReadback.Sum(n => n.ChildItems.Count));
+
+            //Compare content between ParentTableItems and ParentTableReadback
+            foreach (ParentTable i in ParentTableItems)
+            {
+                ParentTable ptrItem = ParentTableReadback.FirstOrDefault(n => n.ID == i.ID);
+                Assert.That(ptrItem != null);
+                Assert.That(i.ChildItems.Count == ptrItem.ChildItems.Count);
+                Assert.That(i.Name == ptrItem.Name);
+                for (int x = 0; x < i.ChildItems.Count; x++)
+                {
+                    Assert.That(i.ChildItems[x].Value == ptrItem.ChildItems[x].Value);
+                }
+
+                if (i.ParentEx == null)
+                    Assert.That(ptrItem.ParentEx, Is.Null);
+                else
+                    Assert.That(i.ParentEx.Address, Is.EqualTo(ptrItem.ParentEx.Address));
+            }
         }
 
         [Test, Order(22)]
@@ -487,9 +505,9 @@ namespace CodeArtEng.SQLite.Tests
             readBack.Add(new IndexTable() { Name = "1" });
             DB.WriteIndexTableToDB(tableName, readBack.ToArray());
             List<IndexTable> read2 = DB.ReadIndexTableFromDB(tableName).ToList();
-            
+
             Assert.That(read2.FirstOrDefault(n => n.Name == "1")?.ID,
-                Is.EqualTo(readBack.FirstOrDefault(n => n.Name == "1")?.ID));   
+                Is.EqualTo(readBack.FirstOrDefault(n => n.Name == "1")?.ID));
         }
 
         class MultiUniqueColTable

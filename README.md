@@ -260,32 +260,36 @@ public class Employee
 }
 ```
 
+Here’s an improved version of the text, including a clearer explanation and an additional example for the one-to-one mapping using a single object instead of a list:
+
 ## Parent and Child Tables
-Let's examine the example provided: In database, `Department` (Table Name: Department) serves as a parent table, and `List<Employee>` (Table Name: Employees) functions as a child table with a one-to-many relationship, where each department can be associated with multiple employees. In other words, for every single entry in the `Department` table, there can be several corresponding entries in the `Employee` table, each representing an individual employee belonging to that department, while each `Employee` is assigned to only one `Department`.
 
-Child table must have a properties ID declared with `ParentKey` attribute which function as mapping between child and parent table. Value of `DepartmentID` in example below is assigned by SQLite Helper. `PrimaryKey` for class class `Department` is mandatory while it is optional for class `Employee` depends on need of the design.
+When working with relational data models, parent and child table relationships are commonly used to represent hierarchical or associated data. These relationships are often defined using key attributes and can follow either a **one-to-many** or **one-to-one** mapping, depending on the structure and design of the data.
 
-A child table must have an ID property, decorated with `ParentKey` attribute, which serves as the link between  child and parent table. In the example below, parent key value `DepartmentID` is assigned by SQLite Helper.
+### One-to-Many Relationship
 
-```C#
+In a **one-to-many** relationship, a single record in the parent table can be associated with multiple records in the child table. For example, the `Department` table serves as a **parent**, and the `Employee` table acts as the **child**, where each department can have multiple employees:
+
+```csharp
 public class Department
 {
     [PrimaryKey]
     public int ID { get; set; }
     public string Name { get; set; }
     public List<Employee> Employees { get; set; } = new List<Employee>();
-    ...
 }
 
 public class Employee
 {
     public string Name { get; set; }
+
     [ParentKey(typeof(Department))]
     public int DepartmentID { get; set; }
-    ...
 }
 ```
-Equivalent database table are given as follow:
+
+Equivalent database structure:
+
 ```
 Department (Table)
   |- ID, INTEGER, Primary Key
@@ -295,6 +299,53 @@ Employee (Table)
   |- Name, TEXT
   |- DepartmentID, INTEGER  
 ```
+
+In this model, the `DepartmentID` in the `Employee` table acts as a foreign key, linking each employee to their respective department. The `[ParentKey]` attribute ensures the proper mapping between the child and parent records.
+
+### One-to-One Relationship
+
+In a **one-to-one** relationship, each record in the parent table is associated with exactly one record in the child table. In such cases, instead of using a `List<T>` for the child, a **single object** can be used. For example, a `Department` might have exactly one `Location`. This child record can also be optional—for instance, a department may or may not have an assigned location.
+
+```csharp
+public class Department
+{
+    [PrimaryKey]
+    public int ID { get; set; }
+    public string Name { get; set; }
+    public Location Location { get; set; }
+}
+
+public class Location
+{
+    public string Address { get; set; }
+
+    [ParentKey(typeof(Department))]
+    public int DepartmentID { get; set; }
+}
+```
+
+Corresponding database structure:
+
+```
+Department (Table)
+  |- ID, INTEGER, Primary Key
+  |- Name, TEXT
+
+Location (Table)
+  |- Address, TEXT
+  |- DepartmentID, INTEGER  
+```
+
+Here, each department is linked to a single location through the `DepartmentID`, using a one-to-one mapping. This approach is useful when the related child entity is unique per parent and should be treated as a single nested object rather than a collection.
+
+### Summary
+
+- Use `List<Child>` when modeling **one-to-many** relationships.
+- Use a **single object** for **one-to-one** relationships.
+- The child table must include a property decorated with `[ParentKey(typeof(Parent))]` to establish the link.
+- The parent class must have a `[PrimaryKey]` defined for mapping to work correctly.
+
+This flexible design pattern allows you to model different types of relationships clearly and efficiently using object-oriented principles with SQLite helpers.
 
 ## Multiple Database Source
 SQLite Helper also support multiple database source, allow data to be read and write from tables stored in different SQLite database files. Example below showing that `Department` table is stored in main database while `Employee` table is table stored in **Employee.db**. Switching between main and sub database are handled internally by read and write method.

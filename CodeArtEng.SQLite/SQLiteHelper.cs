@@ -864,7 +864,8 @@ namespace CodeArtEng.SQLite
                         throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
 
                     //Read from child table by parent key ID.
-                    MethodInfo ptrReadMethod = this.GetType()
+                    MethodInfo ptrReadMethod;
+                    ptrReadMethod = this.GetType()
                         .GetMethod("ReadFromDatabaseInt", BindingFlags.Instance | BindingFlags.NonPublic)
                         .MakeGenericMethod(childType);
 
@@ -876,7 +877,12 @@ namespace CodeArtEng.SQLite
                             object pKey = senderTable.PrimaryKey.GetDBValue(i);
                             //Recursive call to ReadFromDatabse method.
                             object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.ParentKey.Name} == {pKey}" });
-                            r.Property.SetValueEx(i, childItems);
+                            if (r.IsList) r.Property.SetValueEx(i, childItems);
+                            else
+                            {
+                                IList v = childItems as IList;
+                                if (v.Count > 0) r.Property.SetValueEx(i, v[0]);
+                            }
                         }
                     }
                     finally { RestorePrimaryDBPath(dbBackup); }
@@ -1057,7 +1063,7 @@ namespace CodeArtEng.SQLite
                 Command.Parameters.AddRange(parameters.ToArray());
                 // Row with same unique contraint will be ignored, resulting row change = 0
                 // Handling of such entry is done below. 
-                int rowChanged = ExecuteNonQuery(query); 
+                int rowChanged = ExecuteNonQuery(query);
 
                 //Assign Primary Key, only for integer or long type.
                 if (autoAssignPrimaryKey && rowChanged == 1)
@@ -1129,14 +1135,28 @@ namespace CodeArtEng.SQLite
                         throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
 
                     //Assign parent id to parent key
-                    IList childs = t.Property.GetValue(item) as IList;
                     List<object> childList = new List<object>();
-                    if (childs != null)
+                    if (t.IsList)
                     {
-                        foreach (object c in childs)
+                        //Child table is a list object get all values as IList
+                        IList childs = t.Property.GetValue(item) as IList;
+                        if (childs != null)
                         {
-                            childTableInfo.ParentKey.Property.SetValueEx(c, pKeyID);
-                            childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
+                            foreach (object c in childs)
+                            {
+                                childTableInfo.ParentKey.Property.SetValueEx(c, pKeyID);
+                                childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
+                            }
+                        }
+                    }
+                    else
+                    {
+                        //One to one mapping
+                        object child = t.Property.GetValue(item);
+                        if (child != null)
+                        {
+                            childTableInfo.ParentKey.Property.SetValueEx(child, pKeyID);
+                            childList.Add(child);
                         }
                     }
 

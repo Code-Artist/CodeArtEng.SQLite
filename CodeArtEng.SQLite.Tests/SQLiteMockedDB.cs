@@ -99,6 +99,8 @@ namespace CodeArtEng.SQLite.Tests
 
         public List<ChildTable> ChildItems { get; set; } = new List<ChildTable>();
 
+        public ParentExtension ParentEx { get; set; } = null;
+
         public int CompareTo(object obj)
         {
             foreach (var property in this.GetType().GetProperties())
@@ -110,6 +112,13 @@ namespace CodeArtEng.SQLite.Tests
             }
             return 0;
         }
+    }
+
+    public class ParentExtension
+    {
+        [ParentKey(typeof(ParentTable))]
+        public int ParentID { get; set; }
+        public string Address { get; set; }
     }
 
     /// <summary>
@@ -293,7 +302,7 @@ namespace CodeArtEng.SQLite.Tests
                 TableWithStringPrimaryKey i = new TableWithStringPrimaryKey()
                 {
                     ID = GenerateString(5),
-                    Name  = GenerateString(10)
+                    Name = GenerateString(10)
                 };
                 results.Add(i);
             }
@@ -331,7 +340,8 @@ namespace CodeArtEng.SQLite.Tests
                 ParentTable p = new ParentTable()
                 {
                     Name = GenerateString(r.Next(5, 20)),
-                    ChildItems = new List<ChildTable>()
+                    ChildItems = new List<ChildTable>(),
+                    ParentEx = (x > 2) ? new ParentExtension() { Address = GenerateString(r.Next(5, 20)) } : null
                 };
                 for (int y = 0; y < r.Next(1, maxChildLength); y++)
                 {
@@ -448,7 +458,7 @@ namespace CodeArtEng.SQLite.Tests
                     i.ArrayData[y] = GenerateString(10);
                     i.ItemValue[y] = r.Next(1000);
                 }
-                i.EmptyData = new string[2] {"A", "B"}; 
+                i.EmptyData = new string[2] { "A", "B" };
                 items.Add(i);
             }
             WriteToDatabase(items.ToArray());

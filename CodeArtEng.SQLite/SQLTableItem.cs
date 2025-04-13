@@ -68,6 +68,10 @@ namespace CodeArtEng.SQLite
         /// </summary>
         public bool IsChildTable { get; private set; } = false;
         /// <summary>
+        /// Define if property represent child table which is array of class object.
+        /// </summary>
+        public bool IsList { get; private set; } = false;
+        /// <summary>
         /// Information table for child object.
         /// </summary>
         internal SQLTableInfo ChildTableInfo { get; private set; }
@@ -79,7 +83,7 @@ namespace CodeArtEng.SQLite
         /// <summary>
         /// Define if column is unique with multiple constraint. Set by <see cref="SQLUniqueMultiColumnAttribute"/>
         /// </summary>
-        public bool IsUniqueMulltiColumn { get; private set; } = false; 
+        public bool IsUniqueMulltiColumn { get; private set; } = false;
 
         MethodInfo SetterMethod, GetterMethod;
         /// <summary>
@@ -130,16 +134,6 @@ namespace CodeArtEng.SQLite
                         as SQLIndexTableAttribute).Name;
                 if (!string.IsNullOrEmpty(indexTableName)) TableName = indexTableName;
             }
-            else if (ItemType.IsGenericType && ItemType.IsClass)
-            {
-                if (ItemType.Name.StartsWith("List"))
-                {
-                    IsChildTable = true;
-                    Type childType = ItemType.GetGenericArguments()[0];
-                    ChildTableInfo = new SQLTableInfo(childType, SQLName);
-                }
-                else throw new FormatException($"Generic type {ItemType.Name} not supported, only List is allowed!");
-            }
             else if (ItemType.IsArray)
             {
                 IsArrayTable = true;
@@ -150,6 +144,19 @@ namespace CodeArtEng.SQLite
                             as SQLArrayTableAtribute).Name;
                     if (!string.IsNullOrEmpty(arrayTableName)) TableName = arrayTableName;
                 }
+            }
+            else if (ItemType.IsClass && !IsValueType(ItemType) && !ItemType.IsArray)
+            {
+                Type childType = ItemType;
+                if (ItemType.IsGenericType)
+                {
+                    if (!ItemType.Name.StartsWith("List"))
+                        throw new FormatException($"Generic type {ItemType.Name} not supported, only List is allowed!");
+                    IsList = true;
+                    childType = ItemType.GetGenericArguments()[0];
+                }
+                IsChildTable = true;
+                ChildTableInfo = new SQLTableInfo(childType, SQLName);
             }
             else DataType = ConvertToSQLDataType(Property.PropertyType);
 
@@ -166,6 +173,19 @@ namespace CodeArtEng.SQLite
                 DataType = (Attribute.GetCustomAttribute(property, typeof(SQLDataTypeAttribute))
                         as SQLDataTypeAttribute).DataType;
             }
+        }
+
+        private bool IsValueType(Type type)
+        {
+            return type.IsPrimitive
+                  || type.IsValueType
+                  || type.IsEnum
+                  || type.Equals(typeof(string))
+                  || type.Equals(typeof(decimal))
+                  || type.Equals(typeof(DateTime))
+                  || type.Equals(typeof(DateTimeOffset))
+                  || type.Equals(typeof(TimeSpan))
+                  || type.Equals(typeof(Guid));
         }
 
         /// <summary>
