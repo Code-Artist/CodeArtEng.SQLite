@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using NUnit.Framework;
 
 namespace CodeArtEng.SQLite.Tests
 {
@@ -187,6 +182,9 @@ namespace CodeArtEng.SQLite.Tests
         public string Name { get; set; }
         [SQLUniqueMultiColumn]
         public int Value { get; set; }
+        [SQLIndexTable]
+        [SQLName("MultiConstraintLocation")]
+        public string Location { get; set; }
     }
 
     #endregion

@@ -1,5 +1,4 @@
-﻿using CodeArtEng.SQLite;
-using System;
+﻿using System;
 using System.Windows.Forms;
 
 namespace SQLiteTestApp

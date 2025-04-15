@@ -46,14 +46,21 @@ namespace CodeArtEng.SQLite
         public SQLIndexTableAttribute() { }
     }
 
+    [Obsolete("Use SQLArrayTableAttribute instead.")]
+    public class SQLArrayTableAtribute: SQLArrayTableAttribute
+    {
+        public SQLArrayTableAtribute(string tableName) : base(tableName) { }
+        public SQLArrayTableAtribute() { }
+    } 
+
     /// <summary>
     /// Define table name for array properties. Property name used as table name if attribute is not defined.
     /// </summary>
-    public class SQLArrayTableAtribute: Attribute
+    public class SQLArrayTableAttribute: Attribute
     {
         public string Name { get; private set; } = string.Empty;
-        public SQLArrayTableAtribute(string tableName) => Name = tableName;
-        public SQLArrayTableAtribute() { }
+        public SQLArrayTableAttribute(string tableName) => Name = tableName;
+        public SQLArrayTableAttribute() { }
     }
 
     public enum SQLDataType

@@ -3,15 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Data.SqlClient;
 using System.Data.SQLite;
 using System.Diagnostics;
-using System.Diagnostics.SymbolStore;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using System.Threading;
 
 //ToDo: Read and Write Async
@@ -993,7 +989,7 @@ namespace CodeArtEng.SQLite
             //IMPORTANT:
             //DO NOT Use transaction as multiple read and write query are used.
 
-            Type senderType = senders.First().GetType();
+            Type senderType = typeof(T);
             string tableName = senderTable.TableName;
 
             // Execute query for each element in the array.
@@ -1091,13 +1087,13 @@ namespace CodeArtEng.SQLite
                     //Add primary key to parameter list
                     primaryKey.Property.SetValueEx(item, pKeyID);
                     arguments = arguments.Append(primaryKey).ToArray();
+                    parameters.Add(new SQLiteParameter($"@{primaryKey.SQLName}", pKeyID));
 
                     // Create SQL query for update while maintain existing primary key ID.
                     query = $"INSERT OR REPLACE INTO {tableName} " +
                         $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
                         $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
-                    parameters = arguments.Except(senderTable.IndexKeys).
-                            Select(p => new SQLiteParameter($"@{p.SQLName}", p.GetDBValue(item))).ToList();
+
                     Command.Parameters.Clear();
                     Command.Parameters.AddRange(parameters.ToArray());
                     ExecuteNonQuery(query);

@@ -2,14 +2,8 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
-using System.Data.SqlTypes;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using System.Data.Common;
-using System.Data.SQLite;
-using System.Threading;
 
 //ToDo: TestCase: Read from tables which have more columns than class
 namespace CodeArtEng.SQLite.Tests
@@ -592,21 +586,27 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(items.FirstOrDefault()?.ID, Is.EqualTo(pKey));
         }
 
+        int uID;
         [Test, Order(81)]
         public void U_UpdateItemWithMultiUniqueConstraint()
         {
-            TableMultiConstraint item = new TableMultiConstraint() { Name = "Test", Value = 100 };
+            TableMultiConstraint item = new TableMultiConstraint() { Name = "Test", Value = 100, Location = "L1" };
             DB.WriteTableMultiConstraint(item);
             Assert.That(item.ID != 0);
-            int pKey = item.ID;
+            int pKey = uID = item.ID;
 
             item.Value = 200;
             DB.WriteTableMultiConstraint(item);
             Assert.That(item.ID, Is.EqualTo(pKey));
+        }
 
-            item.ID = 0;
+        [Test, Order(82)]
+        public void U_UpdateItemMultiUniqueConstraint_AlreadyExists()
+        {
+            //Update existing item already in database.
+            TableMultiConstraint item = new TableMultiConstraint() { Name = "Test", Value = 200, Location = ""};
             DB.WriteTableMultiConstraint(item);
-            Assert.That(item.ID, Is.EqualTo(pKey));
+            Assert.That(item.ID, Is.EqualTo(uID));
         }
 
 
