@@ -46,13 +46,6 @@ namespace CodeArtEng.SQLite
         public SQLIndexTableAttribute() { }
     }
 
-    [Obsolete("Use SQLArrayTableAttribute instead.")]
-    public class SQLArrayTable: SQLArrayTableAttribute
-    {
-        public SQLArrayTable(string tableName) : base(tableName) { }
-        public SQLArrayTable() { }
-    } 
-
     /// <summary>
     /// Define table name for array properties. Property name used as table name if attribute is not defined.
     /// </summary>
