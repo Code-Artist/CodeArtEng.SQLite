@@ -229,8 +229,6 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(DB.TableExists(nameof(TableWithPrimaryKey)), Is.True);
         }
 
-
-
         #endregion
 
         #region [ 100 - Table with String Primary Key ]
@@ -280,6 +278,7 @@ namespace CodeArtEng.SQLite.Tests
         int ParentTableChildItems;
         ParentTable[] ParentTableItems, ParentTableReadback;
         ParentTable[] NewItems;
+        ParentTable2[] ParentTableItems2, ParentTableReadback2;
 
         [Test, Order(20)]
         public void R_WriteParentChildTable()
@@ -370,19 +369,51 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(DB.ParentTableCountChildItems() == ParentTableChildItems);
         }
 
-
         [Test, Order(25)]
-        public void WriteBadParentTable()
+        public void R_WriteBadParentTable()
         {
             Assert.Throws<FormatException>(() => { DB.WriteBadParentTable(); });
         }
 
         [Test, Order(26)]
-        public void WriteParentTableEmptyChildList()
+        public void R_WriteParentTableEmptyChildList()
         {
             DB.WriteParentTableEmptyChildrens();
         }
 
+        [Test,Order(27)]
+        public void R_WriteParentAndChildTable2()
+        {
+            ParentTableItems2 = DB.WriteParentTable2(ParentLength, MaxChildLength);
+            ParentTableChildItems = ParentTableItems2.Sum(n => n.ChildItems.Count);
+            Assert.That(ParentTableItems2.Length, Is.EqualTo(ParentLength));
+        }
+
+        [Test, Order(28)]
+        public void R_ReadParentChildTable2()
+        {
+            ParentTableReadback2 = DB.ReadParentTable2();
+            Assert.That(ParentTableReadback2.Length, Is.EqualTo(ParentLength));
+            Assert.That(ParentTableChildItems == ParentTableReadback2.Sum(n => n.ChildItems.Count));
+
+            //Compare content between ParentTableItems and ParentTableReadback
+            foreach (ParentTable2 i in ParentTableItems2)
+            {
+                ParentTable2 ptrItem = ParentTableReadback2.FirstOrDefault(n => n.ID == i.ID);
+                Assert.That(ptrItem != null);
+                Assert.That(i.ChildItems.Count == ptrItem.ChildItems.Count);
+                Assert.That(i.Name == ptrItem.Name);
+                for (int x = 0; x < i.ChildItems.Count; x++)
+                {
+                    Assert.That(i.ChildItems[x].Value == ptrItem.ChildItems[x].Value);
+                }
+
+                if (i.ParentEx == null)
+                    Assert.That(ptrItem.ParentEx, Is.Null);
+                else
+                    Assert.That(i.ParentEx.Address, Is.EqualTo(ptrItem.ParentEx.Address));
+            }
+        }
         #endregion
 
         #region [ 3 - Split Tables Test ]
@@ -604,7 +635,7 @@ namespace CodeArtEng.SQLite.Tests
         public void U_UpdateItemMultiUniqueConstraint_AlreadyExists()
         {
             //Update existing item already in database.
-            TableMultiConstraint item = new TableMultiConstraint() { Name = "Test", Value = 200, Location = ""};
+            TableMultiConstraint item = new TableMultiConstraint() { Name = "Test", Value = 200, Location = "" };
             DB.WriteTableMultiConstraint(item);
             Assert.That(item.ID, Is.EqualTo(uID));
         }

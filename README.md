@@ -268,7 +268,7 @@ When working with relational data models, parent and child table relationships a
 
 ### One-to-Many Relationship
 
-In a **one-to-many** relationship, a single record in the parent table can be associated with multiple records in the child table. For example, the `Department` table serves as a **parent**, and the `Employee` table acts as the **child**, where each department can have multiple employees:
+In a **one-to-many** relationship, a single record in the parent table can be associated with multiple records in the child table. For example, the `Department` table serves as a **parent**, and the `Employee` table acts as the **child**, where each department can have multiple employees. `Employee` class may have primary key included if required.
 
 ```csharp
 public class Department
@@ -304,7 +304,7 @@ In this model, the `DepartmentID` in the `Employee` table acts as a foreign key,
 
 ### One-to-One Relationship
 
-In a **one-to-one** relationship, each record in the parent table is associated with exactly one record in the child table. In such cases, instead of using a `List<T>` for the child, a **single object** can be used. For example, a `Department` might have exactly one `Location`. This child record can also be optional—for instance, a department may or may not have an assigned location.
+In a **one-to-one** relationship, each record in the parent table is associated with exactly one record in the child table. In such cases, instead of using a `List<T>` for the child, a **single object** can be used. For example, a `Department` might have exactly one `Location`. This child record can also be optional—for instance, a department may or may not have an assigned location. In one-to-one relationship, parent and child table matching using `PrimaryKey`.
 
 ```csharp
 public class Department
@@ -319,7 +319,7 @@ public class Location
 {
     public string Address { get; set; }
 
-    [ParentKey(typeof(Department))]
+    [PrimaryKey]
     public int DepartmentID { get; set; }
 }
 ```
@@ -342,7 +342,7 @@ Here, each department is linked to a single location through the `DepartmentID`,
 
 - Use `List<Child>` when modeling **one-to-many** relationships.
 - Use a **single object** for **one-to-one** relationships.
-- The child table must include a property decorated with `[ParentKey(typeof(Parent))]` to establish the link.
+- The child table must include a property decorated with `[ParentKey(typeof(Parent))]` for one-to-many relationship while `[PrimaryKey]` property is expected for child table with one-to-one relationship.
 - The parent class must have a `[PrimaryKey]` defined for mapping to work correctly.
 
 This flexible design pattern allows you to model different types of relationships clearly and efficiently using object-oriented principles with SQLite helpers.

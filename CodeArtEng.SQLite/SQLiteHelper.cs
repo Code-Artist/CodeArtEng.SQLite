@@ -856,8 +856,17 @@ namespace CodeArtEng.SQLite
                     //Get table info
                     SQLTableInfo childTableInfo = r.ChildTableInfo;
                     Type childType = childTableInfo.TableType;
-                    if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
-                        throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
+
+                    if (r.IsList)
+                    {
+                        if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
+                            throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
+                    }
+                    else
+                    {
+                        if (childTableInfo.PrimaryKey == null)
+                            throw new FormatException("Primary key not defined for class " + childTableInfo.Name);
+                    }
 
                     //Read from child table by parent key ID.
                     MethodInfo ptrReadMethod;
@@ -872,10 +881,14 @@ namespace CodeArtEng.SQLite
                         {
                             object pKey = senderTable.PrimaryKey.GetDBValue(i);
                             //Recursive call to ReadFromDatabse method.
-                            object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.ParentKey.Name} == {pKey}" });
-                            if (r.IsList) r.Property.SetValueEx(i, childItems);
+                            if (r.IsList)
+                            {
+                                object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.ParentKey.Name} == {pKey}" });
+                                r.Property.SetValueEx(i, childItems);
+                            }
                             else
                             {
+                                object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.PrimaryKey.Name} == {pKey}" });
                                 IList v = childItems as IList;
                                 if (v.Count > 0) r.Property.SetValueEx(i, v[0]);
                             }
@@ -1127,13 +1140,14 @@ namespace CodeArtEng.SQLite
                 {
                     //Get child table info and identify parent key
                     SQLTableInfo childTableInfo = t.ChildTableInfo;
-                    if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
-                        throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
 
                     //Assign parent id to parent key
                     List<object> childList = new List<object>();
                     if (t.IsList)
                     {
+                        if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
+                            throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
+
                         //Child table is a list object get all values as IList
                         IList childs = t.Property.GetValue(item) as IList;
                         if (childs != null)
@@ -1151,7 +1165,7 @@ namespace CodeArtEng.SQLite
                         object child = t.Property.GetValue(item);
                         if (child != null)
                         {
-                            childTableInfo.ParentKey.Property.SetValueEx(child, pKeyID);
+                            childTableInfo.PrimaryKey.Property.SetValueEx(child, pKeyID);
                             childList.Add(child);
                         }
                     }
@@ -1160,7 +1174,9 @@ namespace CodeArtEng.SQLite
                     try
                     {
                         //When updating existing items, delete existing child items before writing updated one.
-                        DeleteChildItemsByParentID(childTableInfo, pKeyID);
+                        if (t.IsList) DeleteChildItemsByParentID(childTableInfo, pKeyID);
+                        else DeleteChildItemsByPrimaryKeyID(childTableInfo, pKeyID);
+
                         //Recusive write to child table items.
                         if (childList.Count > 0) WriteToDatabaseInt(childTableInfo, childList.ToArray());
                     }
@@ -1170,9 +1186,15 @@ namespace CodeArtEng.SQLite
             }//for each items in senders
         }
 
-        private void DeleteChildItemsByParentID(SQLTableInfo childTableInfo, long parentID)
+        private void DeleteChildItemsByParentID(SQLTableInfo childTableInfo, object parentID)
         {
             string query = $"DELETE FROM {childTableInfo.TableName} WHERE {childTableInfo.ParentKey.Name} == {parentID}";
+            ExecuteNonQuery(query);
+        }
+
+        private void DeleteChildItemsByPrimaryKeyID(SQLTableInfo childTableInfo, object primaryKeyID)
+        {
+            string query = $"DELETE FROM {childTableInfo.TableName} WHERE {childTableInfo.PrimaryKey.Name} == {primaryKeyID}";
             ExecuteNonQuery(query);
         }
 
@@ -1207,7 +1229,8 @@ namespace CodeArtEng.SQLite
                 foreach (SQLTableItem t in senderTable.ChildTables)
                 {
                     SQLTableInfo childTableInfo = t.ChildTableInfo;
-                    ExecuteNonQuery($"DELETE FROM {childTableInfo.TableName} WHERE {childTableInfo.ParentKey.Name} == {pKey}");
+                    if (t.IsList) DeleteChildItemsByParentID(childTableInfo, pKey);
+                    else DeleteChildItemsByPrimaryKeyID(childTableInfo, pKey);
                 }
 
                 //Delete parent instance

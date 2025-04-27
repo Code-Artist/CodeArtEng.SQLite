@@ -94,6 +94,9 @@ namespace CodeArtEng.SQLite.Tests
 
         public List<ChildTable> ChildItems { get; set; } = new List<ChildTable>();
 
+        /// <summary>
+        /// One to one relationship Text
+        /// </summary>
         public ParentExtension ParentEx { get; set; } = null;
 
         public int CompareTo(object obj)
@@ -109,9 +112,24 @@ namespace CodeArtEng.SQLite.Tests
         }
     }
 
+    public class ParentTable2
+    {
+        [PrimaryKey]
+        public int ID { get; set; }
+        public string Name { get; set; }
+
+        public List<ChildTable2> ChildItems { get; set; } = new List<ChildTable2>();
+
+        /// <summary>
+        /// One to one relationship
+        /// </summary>
+        [SQLName("ParentExtension2")]
+        public ParentExtension ParentEx { get; set; } = null;
+    }
+
     public class ParentExtension
     {
-        [ParentKey(typeof(ParentTable))]
+        [PrimaryKey]
         public int ParentID { get; set; }
         public string Address { get; set; }
     }
@@ -122,6 +140,16 @@ namespace CodeArtEng.SQLite.Tests
     public class ChildTable
     {
         [ParentKey(typeof(ParentTable))]
+        public int ParentID { get; set; }
+        public int Value { get; set; }
+    }
+
+    /// <summary>
+    /// DB table to simulate parent child relationship
+    /// </summary>
+    public class ChildTable2
+    {
+        [ParentKey(typeof(ParentTable2))]
         public int ParentID { get; set; }
         public int Value { get; set; }
     }
@@ -328,6 +356,36 @@ namespace CodeArtEng.SQLite.Tests
             ParentTable t = new ParentTable() { Name = "Table with Empty Child" };
             t.ChildItems = null;
             WriteToDatabase(t);
+        }
+
+        public ParentTable2[] WriteParentTable2(int length, int maxChildLength)
+        {
+            List<ParentTable2> results = new List<ParentTable2>();
+            for (int x = 0; x < length; x++)
+            {
+                ParentTable2 p = new ParentTable2()
+                {
+                    Name = GenerateString(r.Next(5, 20)),
+                    ChildItems = new List<ChildTable2>(),
+                    ParentEx = (x > 2) ? new ParentExtension() { Address = GenerateString(r.Next(5, 20)) } : null
+                };
+                for (int y = 0; y < r.Next(1, maxChildLength); y++)
+                {
+                    ChildTable2 c = new ChildTable2()
+                    {
+                        Value = r.Next(1, 20000)
+                    };
+                    p.ChildItems.Add(c);
+                }
+                results.Add(p);
+            }
+
+            WriteToDatabase(results.ToArray());
+            return results.ToArray();
+        }
+        public ParentTable2[] ReadParentTable2()
+        {
+            return ReadFromDatabase<ParentTable2>().ToArray();
         }
 
         public ParentTable[] WriteParentTable(int length, int maxChildLength)

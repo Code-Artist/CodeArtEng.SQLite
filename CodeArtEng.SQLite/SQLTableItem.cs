@@ -63,7 +63,7 @@ namespace CodeArtEng.SQLite
         public SQLDataType DataType { get; private set; } = SQLDataType.TEXT;
 
         /// <summary>
-        /// Define if property represent child table.
+        /// Define if property represent one to many child table.
         /// Property which is class object and list of class are identified as child tables.
         /// </summary>
         public bool IsChildTable { get; private set; } = false;
@@ -138,16 +138,17 @@ namespace CodeArtEng.SQLite
             {
                 IsArrayTable = true;
                 DataType = ConvertToSQLDataType(ItemType.GetElementType());
-                if (Attribute.IsDefined(Property, typeof(SQLArrayTableAtribute)))
+                if (Attribute.IsDefined(Property, typeof(SQLArrayTableAttribute)))
                 {
-                    string arrayTableName = (Attribute.GetCustomAttribute(property, typeof(SQLArrayTableAtribute))
-                            as SQLArrayTableAtribute).Name;
+                    string arrayTableName = (Attribute.GetCustomAttribute(property, typeof(SQLArrayTableAttribute))
+                            as SQLArrayTableAttribute).Name;
                     if (!string.IsNullOrEmpty(arrayTableName)) TableName = arrayTableName;
                 }
             }
             else if (ItemType.IsClass && !IsValueType(ItemType) && !ItemType.IsArray)
             {
                 Type childType = ItemType;
+                IsList = false;
                 if (ItemType.IsGenericType)
                 {
                     if (!ItemType.Name.StartsWith("List"))

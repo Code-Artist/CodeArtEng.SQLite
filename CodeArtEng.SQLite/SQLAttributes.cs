@@ -47,10 +47,10 @@ namespace CodeArtEng.SQLite
     }
 
     [Obsolete("Use SQLArrayTableAttribute instead.")]
-    public class SQLArrayTableAtribute: SQLArrayTableAttribute
+    public class SQLArrayTable: SQLArrayTableAttribute
     {
-        public SQLArrayTableAtribute(string tableName) : base(tableName) { }
-        public SQLArrayTableAtribute() { }
+        public SQLArrayTable(string tableName) : base(tableName) { }
+        public SQLArrayTable() { }
     } 
 
     /// <summary>

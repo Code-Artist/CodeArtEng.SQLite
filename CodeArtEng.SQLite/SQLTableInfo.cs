@@ -120,13 +120,27 @@ namespace CodeArtEng.SQLite
                 if (PrimaryKey == null) throw new FormatException($"Missing primary key for table {TableName}!");
                 foreach (SQLTableItem i in ChildTables)
                 {
-                    if(i.ChildTableInfo.ParentKey == null)
+                    if (i.IsChildTable)
                     {
-                        throw new FormatException($"Parent key is not defined in class " +
-                            $"{i.ChildTableInfo.Name} for properties {TableName}.{i.Name}!");
+                        if (i.IsList)
+                        {
+                            if (i.ChildTableInfo.ParentKey == null)
+                            {
+                                throw new FormatException($"Parent key is not defined in class " +
+                                    $"{i.ChildTableInfo.Name} for properties {TableName}.{i.Name}!");
+                            }
+                            if (i.ChildTableInfo.ParentKey.ParentType != TableType)
+                                throw new FormatException($"Parent key {TableType} not found in table {i.SQLName}!");
+                        }
+                        else
+                        {
+                            if (i.ChildTableInfo.PrimaryKey == null)
+                            {
+                                throw new FormatException($"Primary key is not defined in class " +
+                                    $"{i.ChildTableInfo.Name} for properties {TableName}.{i.Name}!");
+                            }
+                        }
                     }
-                    if (i.ChildTableInfo.ParentKey.ParentType != TableType)
-                        throw new FormatException($"Parent key {TableType} not found in table {i.SQLName}!");
                 }
             }
 
