@@ -260,8 +260,6 @@ public class Employee
 }
 ```
 
-Here’s an improved version of the text, including a clearer explanation and an additional example for the one-to-one mapping using a single object instead of a list:
-
 ## Parent and Child Tables
 
 When working with relational data models, parent and child table relationships are commonly used to represent hierarchical or associated data. These relationships are often defined using key attributes and can follow either a **one-to-many** or **one-to-one** mapping, depending on the structure and design of the data.
@@ -348,7 +346,7 @@ Here, each department is linked to a single location through the `DepartmentID`,
 This flexible design pattern allows you to model different types of relationships clearly and efficiently using object-oriented principles with SQLite helpers.
 
 ## Multiple Database Source
-SQLite Helper also support multiple database source, allow data to be read and write from tables stored in different SQLite database files. Example below showing that `Department` table is stored in main database while `Employee` table is table stored in **Employee.db**. Switching between main and sub database are handled internally by read and write method.
+SQLite Helper also supports multiple database source, allow data to be read and write from tables stored in different SQLite database files. Example below showing that `Department` table is stored in main database while `Employee` table is table stored in **Employee.db**. Switching between main and sub database are handled internally by read and write method.
 This `SQLDatabase` attribute can only be used with child table.
 ```C#
 public class Department
