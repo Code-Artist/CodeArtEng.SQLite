@@ -571,7 +571,7 @@ namespace CodeArtEng.SQLite
         private SQLTableInfo GetTableInfo(Type sender, string tableName = null)
         {
             if (string.IsNullOrEmpty(tableName)) tableName = sender.SQLName();
-            SQLTableInfo result = TableInfos.FirstOrDefault(n => n.TableType == sender && n.Name == tableName);
+            SQLTableInfo result = TableInfos.FirstOrDefault(n => n.TableType == sender && n.TableName == tableName);
             if (result != null) return result;
 
             //Create entry, verify table exist
@@ -683,7 +683,7 @@ namespace CodeArtEng.SQLite
                 if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
                 {
                     CreateTable<IndexTable>(tableName);
-                    result = new IndexTableHandler(tableName);
+                    result = new IndexTableHandler(tableName) { LastReadID = ReadOpID };
                 }
                 else if (IsDatabaseReadOnly)
                     return null; //Database is readonly, table not exists, return nuothing.
