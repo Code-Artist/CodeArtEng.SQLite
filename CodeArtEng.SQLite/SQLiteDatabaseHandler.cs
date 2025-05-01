@@ -110,7 +110,7 @@ namespace CodeArtEng.SQLite
         /// Connect to database. When local sync mode is activated, update local database file when 
         /// difference between <see cref="LastUpdate"/> time and current time greater than <see cref="UpdateIntervalMinutes"/>
         /// </summary>
-        protected override void Connect()
+        protected override void ConnectInt()
         {
             if (IsConnected) return; //Avoid reconnect keep alive database.
             if (IsLocalSyncActive)
@@ -141,7 +141,7 @@ namespace CodeArtEng.SQLite
                     }
                 }
             }//if
-            base.Connect();
+            base.ConnectInt();
         }
 
         /// <summary>

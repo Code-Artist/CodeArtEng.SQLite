@@ -4,6 +4,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 //ToDo: TestCase: Read from tables which have more columns than class
 namespace CodeArtEng.SQLite.Tests
@@ -126,7 +127,6 @@ namespace CodeArtEng.SQLite.Tests
             //Read non
             Assert.That(DB.ReadIndexTableFromDB("TextAsID").Length, Is.EqualTo(0));
         }
-
 
         [Test, Order(11)]
         public void PK_WriteTableWithPrimaryKey()
@@ -439,7 +439,7 @@ namespace CodeArtEng.SQLite.Tests
 
         #region [ 4 - Database Lock ]
 
-        [Test]
+        [Test, Order(40)]
         public void SimulateLockedDatabase()
         {
             DB.WriteMiscKey("Dummy"); //Ensure table is created.
@@ -489,6 +489,36 @@ namespace CodeArtEng.SQLite.Tests
             });
         }
 
+
+        [Test, Order(41)]
+        public void ParallelRead_NoLock()
+        {
+            //Simulate lock database for 2 seconds.
+            using (Task t = new Task(LockDatabase))
+            {
+                t.Start();
+                using (SQLiteMockedDB db2 = new SQLiteMockedDB("TestDB.db"))
+                {
+                    DateTime tStart = DateTime.Now;
+                    try
+                    {
+                        ParentTable[] readItems = db2.ReadParentTable();
+                        Assert.That(readItems.Length, Is.EqualTo(11));
+                    }
+                    catch (Exception ex)
+                    {
+                        Assert.Fail(ex.Message);
+                    }
+                    finally
+                    {
+                        double seconds = (DateTime.Now - tStart).TotalSeconds;
+                        Assert.That(seconds, Is.LessThan(100));
+                    }
+                    t.Wait();
+                }
+            }
+        }
+
         #endregion
 
         #region [ 5 - Create Table ]
@@ -498,7 +528,7 @@ namespace CodeArtEng.SQLite.Tests
         {
             SQLiteMockedDB dbReadonly = new SQLiteMockedDB(TestDBPath, isReadOnly: true, createFile: true);
             TableWithPrimaryKey[] results = dbReadonly.ReadFromTableWithPrimaryKey("C_TableWithPrimaryKey2");
-            Assert.That(results, Is.Null);
+            Assert.That(results.Length, Is.EqualTo(0));
         }
 
         [Test, Order(51)]
@@ -551,7 +581,6 @@ namespace CodeArtEng.SQLite.Tests
         {
             DB.CreateTable<MultiUniqueColTable>();
         }
-
 
         #endregion
 
@@ -668,6 +697,18 @@ namespace CodeArtEng.SQLite.Tests
         {
             SQLiteMockedDB mockedDB = new SQLiteMockedDB("Backup3.db");
             mockedDB.SyncDatabaseFrom(TestDBPath);
+        }
+
+        #endregion
+
+        #region [ 1000 - Clear Table ]
+
+        [Test, Order(1000)]
+        public void TestClearTables()
+        {
+            SQLiteMockedDB backupDB = new SQLiteMockedDB("Backup.db");
+            backupDB.ClearAllTables();
+            Assert.That( backupDB.ReadTableWithPrimaryKey().Length, Is.EqualTo(0)); 
         }
 
         #endregion

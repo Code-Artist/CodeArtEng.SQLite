@@ -250,6 +250,7 @@ namespace CodeArtEng.SQLite.Tests
             return base.GetTableSchema(tableName);
         }
 
+        public new void ClearAllTables() => base.ClearAllTables();
         public new void ClearTable(string tableName) => base.ClearTable(tableName);
         public new string CreateTable<T>(string tableName = null) => base.CreateTable<T>(tableName);
         public new IndexTable[] IndexTable(string tableName) => base.IndexTable(tableName);
@@ -276,6 +277,7 @@ namespace CodeArtEng.SQLite.Tests
             List<TableWithPrimaryKey> results = new List<TableWithPrimaryKey>();
             for (int x = 0; x < length; x++)
             {
+                string t = "Item_" + (x + 1).ToString();
                 TableWithPrimaryKey i = new TableWithPrimaryKey()
                 {
                     Name = GenerateString(r.Next(5, 30)),
@@ -339,7 +341,7 @@ namespace CodeArtEng.SQLite.Tests
 
         public TableWithStringPrimaryKey[] ReadTableWithStringPrimaryKey()
         {
-            return ReadFromDatabase<TableWithStringPrimaryKey>().ToArray();
+            return ReadFromDatabase<TableWithStringPrimaryKey>()?.ToArray();
         }
 
         public void UpdateTableWithStringPrimaryKey(params TableWithStringPrimaryKey[] items)

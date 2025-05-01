@@ -51,7 +51,7 @@ namespace CodeArtEng.SQLite
         /// </summary>
         protected string ConnectStringReadOnly { get; private set; } = string.Empty;
         /// <summary>
-        /// Databse file full path. Execute <see cref="SetSQLPath(string, bool)"/> to change.
+        /// Database file full path. Execute <see cref="SetSQLPath(string, bool, bool)"/> to change.
         /// </summary>
         public string DatabaseFilePath { get; private set; } = string.Empty;
         /// <summary>
@@ -71,7 +71,8 @@ namespace CodeArtEng.SQLite
         private bool _KeepDBOpen = false;
 
         /// <summary>
-        /// Return true if databse is open in readonly mode. Configure by <see cref="SetSQLPath(string, bool)"/>
+        /// Return true if databse is configure to operate in readonly mode only.
+        /// Configure by <see cref="SetSQLPath(string, bool)"/>
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool ReadOnly { get; private set; } = false;
@@ -185,8 +186,8 @@ namespace CodeArtEng.SQLite
             ConnectString = @"Data Source=" + databaseFilePath + ";Version=3;";
 
             ReadOnly = readOnly;
-            if (ReadOnly) ConnectString += "Read Only=True;";
-            ConnectStringReadOnly = ConnectString + "Read Only=True;";
+            if (ReadOnly) ConnectStringReadOnly = ConnectString += "Read Only=True;";
+            else ConnectStringReadOnly = ConnectString + "Read Only=True;";
             DBConnection.ConnectionString = ConnectString;
 
             if (!File.Exists(DatabaseFilePath) && createFile) CreateDatabase();
@@ -199,7 +200,13 @@ namespace CodeArtEng.SQLite
         {
             try
             {
+                if (IsConnected) return;
+                if (string.IsNullOrEmpty(DatabaseFilePath)) throw new ArgumentNullException("Database path not defined!");
+
+                DBConnection.ConnectionString = ConnectString;
+                DBConnection.ParseViaFramework = true;
                 DBConnection.Open();
+
                 KeepDatabaseOpen = true;
                 ExecuteNonQuery("PRAGMA auto_vacuum = INCREMENTAL");
                 ExecuteNonQuery("PRAGMA journal_mode = WAL");
@@ -209,17 +216,16 @@ namespace CodeArtEng.SQLite
             finally
             {
                 KeepDatabaseOpen = false;
-                DBConnection.Close();
+                Disconnect();
             }
         }
-
 
         /// <summary>
         /// Connect to database. Do nothing if connection is already established.
         /// </summary>
         /// <exception cref="ArgumentNullException">Database path not defined. <see cref="SetSQLPath(string, bool)"/></exception>
         /// <exception cref="AccessViolationException">Database not accessible.</exception>
-        protected virtual void Connect()
+        protected void Connect()
         {
             if (IsConnected) return;
             DBConnection.ConnectionString = ConnectString;
@@ -233,7 +239,6 @@ namespace CodeArtEng.SQLite
         private void ConnectRead()
         {
             if (IsConnected) return;
-            ReadOnly = true;
             DBConnection.ConnectionString = ConnectStringReadOnly;
             ConnectInt();
         }
@@ -243,7 +248,7 @@ namespace CodeArtEng.SQLite
         /// </summary>
         /// <exception cref="ArgumentNullException">Database path not defined.</exception>
         /// <exception cref="AccessViolationException">Not able to access database</exception>
-        private void ConnectInt()
+        protected virtual void ConnectInt()
         {
             if (IsConnected) return;
             if (string.IsNullOrEmpty(DatabaseFilePath)) throw new ArgumentNullException("Database path not defined!");
@@ -293,7 +298,7 @@ namespace CodeArtEng.SQLite
             SQLiteDataReader result = null;
             try
             {
-                Connect();
+                ConnectRead();
                 Command.CommandText = query;
                 result = Command.ExecuteReader();
                 processQueryResults(result);
@@ -306,7 +311,7 @@ namespace CodeArtEng.SQLite
         }
 
         /// <summary>
-        /// Execute query which return single value.
+        /// Execute query which return single value. Read operation.
         /// </summary>
         /// <param name="query"></param>
         /// <param name="name"></param>
@@ -315,7 +320,7 @@ namespace CodeArtEng.SQLite
         {
             try
             {
-                Connect();
+                ConnectRead();
                 Command.CommandText = query;
                 object result = Command.ExecuteScalar();
                 return result;
@@ -324,7 +329,7 @@ namespace CodeArtEng.SQLite
         }
 
         /// <summary>
-        /// Execute non-query, return number of rows affected.
+        /// Execute non-query, write operation. Return number of rows affected.
         /// </summary>
         /// <param name="query"></param>
         /// <returns></returns>
@@ -341,7 +346,7 @@ namespace CodeArtEng.SQLite
         }
 
         /// <summary>
-        /// Execute SQL Transactions.
+        /// Execute SQL Transactions, write operation.
         /// </summary>
         protected void ExecuteTransaction(Action performTransactions)
         {
@@ -421,14 +426,17 @@ namespace CodeArtEng.SQLite
         /// </summary>
         protected void ClearAllTables()
         {
-            List<string> tables = new List<string>();
-            string query = "SELECT NAME FROM SQLITE_MASTER WHERE TYPE ='table'";
-            ExecuteQuery(query, (r) =>
+            ExecuteTransaction(() =>
             {
-                while (r.Read()) tables.Add(r.GetString(0));
+                List<string> tables = new List<string>();
+                string query = "SELECT NAME FROM SQLITE_MASTER WHERE TYPE ='table'";
+                ExecuteQuery(query, (r) =>
+                {
+                    while (r.Read()) tables.Add(r.GetString(0));
+                });
+                foreach (string t in tables)
+                    ExecuteNonQuery("DELETE FROM " + t);
             });
-            foreach (string t in tables)
-                ExecuteNonQuery("DELETE FROM " + t);
             CompactDatabase();
         }
 
@@ -450,10 +458,13 @@ namespace CodeArtEng.SQLite
         /// <exception cref="InvalidOperationException"></exception>
         protected void ClearTable(string tableName)
         {
-            if (!VerifyTableExists(tableName))
-                throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
-            ExecuteNonQuery("DELETE FROM " + tableName);
-            if (!IsSQLTransaction) CompactDatabase();
+            ExecuteTransaction(() =>
+            {
+                if (!VerifyTableExists(tableName))
+                    throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
+                ExecuteNonQuery("DELETE FROM " + tableName);
+                if (!IsSQLTransaction) CompactDatabase();
+            });
         }
 
         /// <summary>
@@ -576,9 +587,15 @@ namespace CodeArtEng.SQLite
 
             //Create entry, verify table exist
             result = new SQLTableInfo(sender, tableName);
-            if (!result.Validated) ValidateTableinfo(result);
-            TableInfos.Add(result);
-            TableInfos.AddRange(result.ChildTables.Select(n => n.ChildTableInfo).ToArray());
+            if (!result.Validated)
+            {
+                if (ValidateTableinfo(result))
+                {
+                    TableInfos.Add(result);
+                    TableInfos.AddRange(result.ChildTables.Select(n => n.ChildTableInfo).ToArray());
+                    return result;
+                }
+            }
             return result;
         }
 
@@ -589,8 +606,10 @@ namespace CodeArtEng.SQLite
             if (!VerifyTableExists(info.TableName))
             {
                 if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
+                {
                     CreateTable(info.TableType, info.TableName);
-                else if (IsDatabaseReadOnly) //Database is readonly, table not exist, skip validation
+                }
+                else if (IsDatabaseReadOnly) //Database is readonly, table not exist, skip creation
                     return false;
                 else
                     throw new InvalidOperationException($"Table [{info.TableName}] not exists in database!");
@@ -669,14 +688,14 @@ namespace CodeArtEng.SQLite
             IndexTableHandler result = IndexTables.FirstOrDefault(n => n.Name == tableName);
             if (result != null)
             {
-                ReadIndexTableContentFromDatabse(result);
+                ReadIndexTableContentFromDatabase(result);
                 return result;
             }
 
             if (VerifyTableExists(tableName))
             {
                 result = new IndexTableHandler(tableName);
-                ReadIndexTableContentFromDatabse(result);
+                ReadIndexTableContentFromDatabase(result);
             }
             else
             {
@@ -746,7 +765,7 @@ namespace CodeArtEng.SQLite
             try
             {
                 SQLTableInfo senderTable = GetTableInfo(typeof(T), tableName);
-                if (!senderTable.Validated) return null;
+                if (!senderTable.Validated) return new List<T>();
                 Command.Parameters.Clear();
                 if (!string.IsNullOrEmpty(whereStatement))
                 {
@@ -919,7 +938,7 @@ namespace CodeArtEng.SQLite
             }
         }
 
-        private void ReadIndexTableContentFromDatabse(IndexTableHandler table)
+        private void ReadIndexTableContentFromDatabase(IndexTableHandler table)
         {
             if (table.LastReadID == ReadOpID) return;
             table.LastReadID = ReadOpID;
@@ -968,6 +987,7 @@ namespace CodeArtEng.SQLite
             KeepDatabaseOpen = true; //Overwrite keepdatabase open
             try
             {
+                Connect();
                 SQLTableInfo senderTable = GetTableInfo(typeof(T), tableName);
                 WriteToDatabaseInt(senderTable, senders);
 
