@@ -19,6 +19,17 @@ namespace CodeArtEng.SQLite
     /// </summary>
     public abstract partial class SQLiteHelper : IDisposable
     {
+        #region [ Profiling ]
+
+        public long ConnectCounter { get; private set; } = 0;
+        public long SQLCounter { get; private set; } = 0;
+        public bool SQLCounterEnabled { get; set; } = false;
+        public void CountQuery() { if (SQLCounterEnabled && (Command.Transaction == null)) SQLCounter++; }
+        public void ResetCounter() { ConnectCounter = SQLCounter = 0; }
+        public void CountConnect() { if (SQLCounterEnabled) ConnectCounter++; }
+
+        #endregion
+
         #region [ Internal SQLite Objects ]
 
         private SQLiteCommand SqlCommand;
@@ -254,6 +265,7 @@ namespace CodeArtEng.SQLite
             if (string.IsNullOrEmpty(DatabaseFilePath)) throw new ArgumentNullException("Database path not defined!");
             if (!IsDatabaseOnline()) throw new AccessViolationException("Database not exists or not reachable!");
 
+            CountConnect();
             DBConnection.ParseViaFramework = true;
             DBConnection.Open();
         }
@@ -300,6 +312,7 @@ namespace CodeArtEng.SQLite
             {
                 ConnectRead();
                 Command.CommandText = query;
+                CountQuery();
                 result = Command.ExecuteReader();
                 processQueryResults(result);
             }
@@ -322,6 +335,7 @@ namespace CodeArtEng.SQLite
             {
                 ConnectRead();
                 Command.CommandText = query;
+                CountQuery();
                 object result = Command.ExecuteScalar();
                 return result;
             }
@@ -339,6 +353,7 @@ namespace CodeArtEng.SQLite
             {
                 Connect();
                 Command.CommandText = query;
+                CountQuery();
                 int reader = Command.ExecuteNonQuery();
                 return reader;
             }
@@ -362,6 +377,7 @@ namespace CodeArtEng.SQLite
                 //User implemented callback
                 performTransactions();
                 transaction.Commit();
+                CountQuery();
             }
             catch
             {
