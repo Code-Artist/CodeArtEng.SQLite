@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security;
 
 namespace CodeArtEng.SQLite.Tests
 {
@@ -258,6 +259,11 @@ namespace CodeArtEng.SQLite.Tests
         public new bool TableExists(string tableName)
         {
             return base.TableExists(tableName);
+        }
+
+        public void DropTable(string tableName)
+        {
+            base.ExecuteNonQuery($"DROP TABLE {tableName}");
         }
 
         #endregion

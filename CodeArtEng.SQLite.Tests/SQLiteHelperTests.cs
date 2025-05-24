@@ -414,6 +414,18 @@ namespace CodeArtEng.SQLite.Tests
                     Assert.That(i.ParentEx.Address, Is.EqualTo(ptrItem.ParentEx.Address));
             }
         }
+
+        [Test, Order(29)]
+        public void R_DropParentExtensionTable_Read()
+        {
+            //Drop table, verify read operation success even child table is missing
+            DB.DropTable("ParentEx");
+            using (SQLiteMockedDB db2 = new SQLiteMockedDB(TestDBPath))
+            {
+                Assert.That(db2.ReadParentTable().Length, Is.Not.EqualTo(0));
+            }
+        }
+
         #endregion
 
         #region [ 3 - Split Tables Test ]
@@ -624,6 +636,16 @@ namespace CodeArtEng.SQLite.Tests
             ArrayTableReadback = DB.ReadTableWithArrays();
             TableWithArray t = ArrayTableReadback.FirstOrDefault(n => n.ID == 1);
             Assert.That(t.ArrayData.Count, Is.EqualTo(0));
+        }
+
+        [Test, Order(73), Ignore("To review")]
+        public void A_DropArrayTable_Read()
+        {
+            DB.DropTable("ArrayData");
+            using(SQLiteMockedDB db2 = new SQLiteMockedDB(TestDBPath))
+            {
+                Assert.That(db2.ReadTableWithArrays().Length, Is.Not.EqualTo(0));
+            }
         }
 
         #endregion
