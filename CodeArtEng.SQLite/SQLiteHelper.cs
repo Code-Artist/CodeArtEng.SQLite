@@ -891,6 +891,12 @@ namespace CodeArtEng.SQLite
                     //Get table info
                     SQLTableInfo childTableInfo = r.ChildTableInfo;
                     Type childType = childTableInfo.TableType;
+                    if(!childTableInfo.Validated)
+                    {
+                        //Verify child table exists, skip reading if table not exists in database.
+                        //Maintain backward compatibility by not failing read operation
+                        if (!ValidateTableinfo(childTableInfo)) continue;
+                    }
 
                     if (r.IsList)
                     {
