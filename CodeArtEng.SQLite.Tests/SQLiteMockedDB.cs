@@ -185,7 +185,7 @@ namespace CodeArtEng.SQLite.Tests
     public class TableWithArray
     {
         [PrimaryKey]
-        public int ID { get; set; }
+        public long ID { get; set; }
         /// <summary>
         /// This is mandatory, otherwise table will be empty with only primary key.
         /// </summary>
@@ -513,7 +513,7 @@ namespace CodeArtEng.SQLite.Tests
             for (int x = 0; x < itemlength; x++)
             {
                 TableWithArray i = new TableWithArray();
-                //i.ID = GenerateString(5);
+                i.ID = (long)((x + 1) * 1e9);
                 i.Name = GenerateString(5);
                 i.ArrayData = new string[arraylength];
                 i.ItemValue = new int[arraylength];
@@ -529,9 +529,9 @@ namespace CodeArtEng.SQLite.Tests
             return items.ToArray();
         }
 
-        public void DeleteItemsFromArrayDataTable(int itemIndex)
+        public void DeleteItemsFromArrayDataTable(long itemIndex)
         {
-            DeleteFromDatabase("WHERE ID == 1", "ArrayData");
+            DeleteFromDatabase($"WHERE ID == {itemIndex}", "ArrayData");
         }
 
         #endregion

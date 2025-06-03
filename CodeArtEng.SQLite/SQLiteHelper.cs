@@ -1051,7 +1051,14 @@ namespace CodeArtEng.SQLite
                     if (pKeyIsInteger)
                     {
                         // Include primary keys in query if value is not 0
-                        pKeyID = (int)pKeyValue;
+                        try
+                        {
+                            pKeyID = Convert.ToInt64(pKeyValue);
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new ArgumentException($"Invalid primary key value for {senderTable.Name}: {pKeyValue}", ex);
+                        }
                         if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
                         else autoAssignPrimaryKey = true;
                     }

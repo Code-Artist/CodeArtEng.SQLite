@@ -632,9 +632,10 @@ namespace CodeArtEng.SQLite.Tests
         [Test, Order(72)]
         public void A_DeleteTableArrayItem()
         {
-            DB.DeleteItemsFromArrayDataTable(1);
+            long id = (long)(1 * 1e9);
+            DB.DeleteItemsFromArrayDataTable(id);
             ArrayTableReadback = DB.ReadTableWithArrays();
-            TableWithArray t = ArrayTableReadback.FirstOrDefault(n => n.ID == 1);
+            TableWithArray t = ArrayTableReadback.FirstOrDefault(n => n.ID == id);
             Assert.That(t.ArrayData.Count, Is.EqualTo(0));
         }
 
