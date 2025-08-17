@@ -639,7 +639,16 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(t.ArrayData.Count, Is.EqualTo(0));
         }
 
-        [Test, Order(73), Ignore("To review")]
+        [Test, Order(73)]
+        public void A_DeletItemFromTableWithArray()
+        {
+            TableWithArray i = ArrayTable.First();
+            DB.DeleteItemFromArrayTable(i);
+            ArrayTableReadback = DB.ReadTableWithArrays();
+            Assert.That(ArrayTableReadback.Length, Is.EqualTo(ArrayTable.Length - 1));
+        }
+
+        [Test, Order(74), Ignore("To review")]
         public void A_DropArrayTable_Read()
         {
             DB.DropTable("ArrayData");

@@ -1273,9 +1273,8 @@ namespace CodeArtEng.SQLite
 
                 foreach (SQLTableItem t in senderTable.ArrayTables)
                 {
-                    SQLTableInfo tbInfo = t.ChildTableInfo;
-                    if (t.IsList) DeleteChildItemsByParentID(tbInfo, pKey);
-                    else DeleteChildItemsByPrimaryKeyID(tbInfo, pKey);
+                    string tbName = t.TableName;
+                    ExecuteNonQuery($"DELETE FROM {tbName} WHERE ID = {pKey}");
                 }
 
                 //Delete parent instance

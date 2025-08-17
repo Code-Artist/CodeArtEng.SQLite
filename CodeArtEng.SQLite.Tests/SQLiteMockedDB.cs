@@ -534,6 +534,11 @@ namespace CodeArtEng.SQLite.Tests
             DeleteFromDatabase($"WHERE ID == {itemIndex}", "ArrayData");
         }
 
+        public void DeleteItemFromArrayTable(TableWithArray sender)
+        {
+            DeleteFromDatabaseByID(sender);
+        }
+
         #endregion
 
         #region [ Table with Multi Columns Constraint ]
