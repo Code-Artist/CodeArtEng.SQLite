@@ -691,23 +691,27 @@ namespace CodeArtEng.SQLite
                 ReadIndexTableContentFromDatabase(result);
                 return result;
             }
-
-            if (VerifyTableExists(tableName))
-            {
-                result = new IndexTableHandler(tableName);
-                ReadIndexTableContentFromDatabase(result);
-            }
             else
             {
-                if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
+                if (VerifyTableExists(tableName))
                 {
-                    CreateTable<IndexTable>(tableName);
-                    result = new IndexTableHandler(tableName) { LastReadID = ReadOpID };
+                    //Table exists in database
+                    result = new IndexTableHandler(tableName);
+                    ReadIndexTableContentFromDatabase(result);
                 }
-                else if (IsDatabaseReadOnly)
-                    return null; //Database is readonly, table not exists, return nuothing.
                 else
-                    throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
+                {
+                    //Create new index table
+                    if (WriteOptions.CreateTable && !IsDatabaseReadOnly)
+                    {
+                        CreateTable<IndexTable>(tableName);
+                        result = new IndexTableHandler(tableName) { LastReadID = ReadOpID };
+                    }
+                    else if (IsDatabaseReadOnly)
+                        return null; //Database is readonly, table not exists, return nuothing.
+                    else
+                        throw new InvalidOperationException($"Table [{tableName}] not exists in database!");
+                }
             }
             IndexTables.Add(result);
             return result;
@@ -900,7 +904,7 @@ namespace CodeArtEng.SQLite
                             //Verify child table exists, skip reading if table not exists in database.
                             //Maintain backward compatibility by not failing read operation
                             if (!ValidateTableinfo(childTableInfo)) continue;
-                            
+
                         }
 
                         foreach (T i in results)
@@ -1262,9 +1266,16 @@ namespace CodeArtEng.SQLite
                 //Delete all child items by parent's primary key.
                 foreach (SQLTableItem t in senderTable.ChildTables)
                 {
-                    SQLTableInfo childTableInfo = t.ChildTableInfo;
-                    if (t.IsList) DeleteChildItemsByParentID(childTableInfo, pKey);
-                    else DeleteChildItemsByPrimaryKeyID(childTableInfo, pKey);
+                    SQLTableInfo tbInfo = t.ChildTableInfo;
+                    if (t.IsList) DeleteChildItemsByParentID(tbInfo, pKey);
+                    else DeleteChildItemsByPrimaryKeyID(tbInfo, pKey);
+                }
+
+                foreach (SQLTableItem t in senderTable.ArrayTables)
+                {
+                    SQLTableInfo tbInfo = t.ChildTableInfo;
+                    if (t.IsList) DeleteChildItemsByParentID(tbInfo, pKey);
+                    else DeleteChildItemsByPrimaryKeyID(tbInfo, pKey);
                 }
 
                 //Delete parent instance
