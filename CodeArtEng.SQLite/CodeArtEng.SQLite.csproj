@@ -2,12 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <Version>1.21.2</Version>
+    <Version>1.21.3</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Copyright>Copyright ©  Code Art Enginnering 2024 - 2025</Copyright>
     <PackageProjectUrl>www.codearteng.com</PackageProjectUrl>
     <PackageIcon>CAELogoSmall.png</PackageIcon>
-    <PackageReleaseNotes>Fix primary key bug for long data type.</PackageReleaseNotes>
+    <PackageReleaseNotes>Update ReadIndexTable, delete ArrayTable by ID
+</PackageReleaseNotes>
     <PackAsTool>False</PackAsTool>
     <RepositoryUrl>https://github.com/Code-Artist/CodeArtEng.SQLite</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
