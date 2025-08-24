@@ -266,6 +266,9 @@ namespace CodeArtEng.SQLite.Tests
             base.ExecuteNonQuery($"DROP TABLE {tableName}");
         }
 
+        public new void SyncDatabaseFrom(string databaseName) => base.SyncDatabaseFrom(databaseName);
+        public new void BackupDatabaseTo(string targetDatabaseFilePath) => base.BackupDatabaseTo(targetDatabaseFilePath);
+
         #endregion
 
         public string GenerateString(int length)

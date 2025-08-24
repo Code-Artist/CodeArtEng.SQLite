@@ -1431,7 +1431,7 @@ namespace CodeArtEng.SQLite
         /// Backup current database to defined backup database file path.
         /// </summary>
         /// <param name="targetDatabaseFilePath"></param>
-        public void BackupDatabaseTo(string targetDatabaseFilePath)
+        protected internal void BackupDatabaseTo(string targetDatabaseFilePath)
         {
             if (string.IsNullOrWhiteSpace(targetDatabaseFilePath))
                 throw new ArgumentException("Backup file path cannot be null or empty.", nameof(targetDatabaseFilePath));
@@ -1491,7 +1491,7 @@ namespace CodeArtEng.SQLite
         /// </summary>
         /// <param name="sourceDatabasePath"></param>
         /// <exception cref="ArgumentException"></exception>
-        public void SyncDatabaseFrom(string sourceDatabasePath)
+        protected void SyncDatabaseFrom(string sourceDatabasePath)
         {
             if (string.IsNullOrWhiteSpace(sourceDatabasePath))
                 throw new ArgumentException("Source database path cannot be null or empty.", nameof(sourceDatabasePath));
