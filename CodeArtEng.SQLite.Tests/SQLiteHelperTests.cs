@@ -452,7 +452,7 @@ namespace CodeArtEng.SQLite.Tests
         #region [ 4 - Database Lock ]
 
         [Test, Order(40)]
-        public void SimulateLockedDatabase()
+        public void L_SimulateLockedDatabase()
         {
             DB.WriteMiscKey("Dummy"); //Ensure table is created.
 
@@ -460,6 +460,7 @@ namespace CodeArtEng.SQLite.Tests
             using (Task t = new Task(LockDatabase))
             {
                 t.Start();
+                System.Threading.Thread.Sleep(500); //Delay make sure DB is locked
                 using (SQLiteMockedDB db2 = new SQLiteMockedDB("TestDB.db"))
                 {
                     DateTime tStart = DateTime.Now;
@@ -474,8 +475,7 @@ namespace CodeArtEng.SQLite.Tests
                         db2.SQLBusyTimeout = 500;
                         //db2.DBConnection.DefaultTimeout = 100;
 
-                        System.Threading.Thread.Sleep(500); //Delay make sure DB is locked
-                        db2.WriteMiscKey(nameof(SimulateLockedDatabase));
+                        db2.WriteMiscKey(nameof(L_SimulateLockedDatabase));
 
                     }
                     catch (Exception ex)
@@ -503,12 +503,13 @@ namespace CodeArtEng.SQLite.Tests
 
 
         [Test, Order(41)]
-        public void ParallelRead_NoLock()
+        public void L_ParallelRead_NoLock()
         {
             //Simulate lock database for 2 seconds.
             using (Task t = new Task(LockDatabase))
             {
                 t.Start();
+                System.Threading.Thread.Sleep(500); //Delay make sure DB is locked
                 using (SQLiteMockedDB db2 = new SQLiteMockedDB("TestDB.db"))
                 {
                     DateTime tStart = DateTime.Now;

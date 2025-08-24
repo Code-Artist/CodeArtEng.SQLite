@@ -30,6 +30,7 @@ namespace CodeArtEng.SQLite
         protected bool IsLocalSyncActive { get; private set; } = false;
         /// <summary>
         /// Local sync update interval in minutes.
+        /// Default settings is 10 minutes
         /// </summary>
         protected int UpdateIntervalMinutes { get; private set; } = 10;
         /// <summary>
@@ -94,7 +95,8 @@ namespace CodeArtEng.SQLite
         }
 
         /// <summary>
-        /// Switch databse connection to local database.
+        /// Switch databse connection to local database. Read from local database and sync periodically from server.
+        /// Local database is only valid fro read operation.
         /// </summary>
         /// <exception cref="InvalidOperationException">Local database path not defined, unable to switch.</exception>
         protected void SwitchToLocalDatabase()
@@ -130,7 +132,6 @@ namespace CodeArtEng.SQLite
                         if (lastSync > UpdateIntervalMinutes)
                         {
                             SyncDatabaseFile();
-                            LastUpdate = DateTime.Now;
                         }
                     }
                     else
@@ -145,9 +146,9 @@ namespace CodeArtEng.SQLite
         }
 
         /// <summary>
-        /// Sync database file from remote server to local path
+        /// Manually Sync database file from remote server to local path
         /// </summary>
-        private void SyncDatabaseFile()
+        public void SyncDatabaseFile()
         {
             string folder = Path.GetDirectoryName(Path.GetFullPath(LocalFilePath));
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
@@ -157,6 +158,7 @@ namespace CodeArtEng.SQLite
             {
                 sourceDB.BackupDatabaseTo(LocalFilePath);
             }
+            LastUpdate = DateTime.Now;
         }
 
         /// <summary>
