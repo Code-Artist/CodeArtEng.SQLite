@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace CodeArtEng.SQLite
@@ -60,7 +61,7 @@ namespace CodeArtEng.SQLite
         /// <param name="remotePath"></param>
         public SQLiteDatabaseHandler(string remotePath)
         {
-            if(string.IsNullOrEmpty(remotePath)) throw new ArgumentNullException(nameof(remotePath), "Remote database path not defined!");
+            if (string.IsNullOrEmpty(remotePath)) throw new ArgumentNullException(nameof(remotePath), "Remote database path not defined!");
             DatabaseFilePath = remotePath;
             SwitchToRemoteDatabase();
         }
@@ -152,11 +153,19 @@ namespace CodeArtEng.SQLite
         {
             string folder = Path.GetDirectoryName(Path.GetFullPath(LocalFilePath));
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-            //FileCopyNoLock(DatabaseFilePath, LocalFilePath);
 
-            using (SQLiteDBLite sourceDB = new SQLiteDBLite(DatabaseFilePath))
+            if (ReadOnly)
             {
-                sourceDB.BackupDatabaseTo(LocalFilePath);
+                //File copy, no write access to source database.
+                FileCopyNoLock(DatabaseFilePath, LocalFilePath);
+            }
+            else
+            {
+                //Database backup, required write access to source database.
+                using (SQLiteDBLite sourceDB = new SQLiteDBLite(DatabaseFilePath))
+                {
+                    sourceDB.BackupDatabaseTo(LocalFilePath);
+                }
             }
             LastUpdate = DateTime.Now;
         }
@@ -171,6 +180,7 @@ namespace CodeArtEng.SQLite
         {
             try
             {
+                DateTime tStart = DateTime.Now;
                 const int bufferSize = 81920; // 80KB buffer
                 using (FileStream sourceStream = new FileStream(sourceFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 {
@@ -187,7 +197,8 @@ namespace CodeArtEng.SQLite
                             bytesWritten += bytesRead;
                         }
                     }
-                }    
+                }
+                Trace.WriteLine("File copy completed in " + (DateTime.Now - tStart).TotalSeconds.ToString("F2") + " seconds."); 
             }
             catch (Exception ex) { throw new Exception("File copy failed! " + ex.Message); }
         }

@@ -92,6 +92,7 @@ namespace CodeArtEng.SQLite.Tests
             Assert.That(File.Exists(localDBPath), Is.True);
             Assert.That(DB.ConnectString.Contains(localDBPath));
             Assert.That((DateTime.Now - DB.LastUpdate).TotalSeconds, Is.LessThan(1));
+            DB.Dispose();
         }
 
         [Test, Order(11)]
@@ -102,6 +103,17 @@ namespace CodeArtEng.SQLite.Tests
             DateTime fileTime = File.GetLastWriteTime(localDBPath);
             Assert.That(DB.GetTables().Count(), Is.GreaterThan(0));
             Assert.That(File.GetLastWriteTime(localDBPath), Is.EqualTo(fileTime));
+            DB.Dispose();
+        }
+
+        [Test, Order(12)]
+        public void ForceSyncReadOnly()
+        {
+            SQLiteDatabaseHandlerMocked DB = ConnectLocalDB(deleteLocalDB: false);
+            DB.SwitchToRemoteDatabase(true);
+            DB.SyncDatabaseFile();
+            Assert.That((DateTime.Now - DB.LastUpdate).TotalSeconds, Is.LessThan(1));
+            DB.Dispose();
         }
     }
 }

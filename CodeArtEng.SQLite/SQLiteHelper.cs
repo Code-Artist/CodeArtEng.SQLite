@@ -71,7 +71,7 @@ namespace CodeArtEng.SQLite
         private bool _KeepDBOpen = false;
 
         /// <summary>
-        /// Return true if databse is configure to operate in readonly mode only.
+        /// Return true if database is configure to operate in readonly mode only.
         /// Configure by <see cref="SetSQLPath(string, bool)"/>
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -118,7 +118,7 @@ namespace CodeArtEng.SQLite
             if (string.IsNullOrEmpty(DatabaseFilePath)) return false;
             return File.Exists(DatabaseFilePath);
         }
-        public bool IsDatabaseReadOnly => DBConnection.ConnectionString.Contains("Read Only=True");
+         bool IsDatabaseReadOnly => DBConnection.ConnectionString.Contains("Read Only=True");
 
         public SQLiteWriteOptions WriteOptions { get; set; } = new SQLiteWriteOptions();
 
@@ -165,9 +165,24 @@ namespace CodeArtEng.SQLite
             GC.SuppressFinalize(this);
         }
 
-        #endregion
-
-        #region [ Connection Handling ]
+        /// <summary>
+        /// Checks if the current user has write access to the directory containing the database file.
+        /// Attempts to create and delete a temporary file in the database directory.
+        /// </summary>
+        /// <returns>True if write access is available; otherwise, false.</returns>
+        private bool CheckUserWriteAccess(string path)
+        {
+            try
+            {
+                string testFile = Path.Combine(Path.GetDirectoryName(path), Path.GetRandomFileName());  
+                using( var fs= File.Create(testFile,1,FileOptions.DeleteOnClose))
+                {
+                    //Just create and close file
+                }
+                return true;
+            }
+            catch { return false; }
+        }
 
         /// <summary>
         /// Set database path and compile connection string.
@@ -186,6 +201,12 @@ namespace CodeArtEng.SQLite
             ConnectString = @"Data Source=" + databaseFilePath + ";Version=3;";
 
             ReadOnly = readOnly;
+            if(!readOnly && !CheckUserWriteAccess(databaseFilePath))
+            {
+                Trace.WriteLine("[WARNING]: User have no write access to database path, switch to ReadOnly mode.");    
+                ReadOnly = true;
+            }
+
             if (ReadOnly) ConnectStringReadOnly = ConnectString += "Read Only=True;";
             else ConnectStringReadOnly = ConnectString + "Read Only=True;";
             DBConnection.ConnectionString = ConnectString;

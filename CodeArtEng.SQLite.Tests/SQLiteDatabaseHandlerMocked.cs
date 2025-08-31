@@ -14,6 +14,6 @@ namespace CodeArtEng.SQLite.Tests
         public new string[] GetTables() => base.GetTables();
         public new void CompactDatabase() => base.CompactDatabase();
         public new void SwitchToLocalDatabase() => base.SwitchToLocalDatabase();
-        public void SwitchToRemoteDatabase() => base.SwitchToRemoteDatabase();
+        public new void SwitchToRemoteDatabase(bool readOnly = false) => base.SwitchToRemoteDatabase(readOnly);
     }
 }
