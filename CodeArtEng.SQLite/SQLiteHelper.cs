@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 //ToDo: Read and Write Async
@@ -118,7 +119,7 @@ namespace CodeArtEng.SQLite
             if (string.IsNullOrEmpty(DatabaseFilePath)) return false;
             return File.Exists(DatabaseFilePath);
         }
-         bool IsDatabaseReadOnly => DBConnection.ConnectionString.Contains("Read Only=True");
+        bool IsDatabaseReadOnly => DBConnection.ConnectionString.Contains("Read Only=True");
 
         public SQLiteWriteOptions WriteOptions { get; set; } = new SQLiteWriteOptions();
 
@@ -174,8 +175,8 @@ namespace CodeArtEng.SQLite
         {
             try
             {
-                string testFile = Path.Combine(Path.GetDirectoryName(path), Path.GetRandomFileName());  
-                using( var fs= File.Create(testFile,1,FileOptions.DeleteOnClose))
+                string testFile = Path.Combine(Path.GetDirectoryName(path), Path.GetRandomFileName());
+                using (var fs = File.Create(testFile, 1, FileOptions.DeleteOnClose))
                 {
                     //Just create and close file
                 }
@@ -201,9 +202,9 @@ namespace CodeArtEng.SQLite
             ConnectString = @"Data Source=" + databaseFilePath + ";Version=3;";
 
             ReadOnly = readOnly;
-            if(!readOnly && !CheckUserWriteAccess(databaseFilePath))
+            if (!readOnly && !CheckUserWriteAccess(databaseFilePath))
             {
-                Trace.WriteLine("[WARNING]: User have no write access to database path, switch to ReadOnly mode.");    
+                Trace.WriteLine("[WARNING]: User have no write access to database path, switch to ReadOnly mode.");
                 ReadOnly = true;
             }
 
@@ -620,6 +621,17 @@ namespace CodeArtEng.SQLite
             return result;
         }
 
+        /// <summary>
+        /// Validate table info against database table structure.
+        /// 
+        /// Database Table may have more columns than .NET Object.
+        /// Ignore table columns which does not have matching in SQLTableInfo (Backward Compatible)
+        /// IF .NET class have more columns than database table, alter table to add missing columns if update table option is enabled.
+        /// </summary>
+        /// <param name="info">SQL database table class</param>
+        /// <returns>Validation result</returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="FormatException"></exception>
         private bool ValidateTableinfo(SQLTableInfo info)
         {
             info.Validated = false;
@@ -638,14 +650,22 @@ namespace CodeArtEng.SQLite
 
             if (info.PrimaryKey != null) ValidatePrimaryKey(info);
 
-            //Database Table may have more columns than .NET Object.
-            //Ignore table columns which does not have matching in SQLTableInfo (Backward Compatible)
             DBColumn[] DBColumns = GetDBColumns(info.TableName);
+            List<SQLTableItem> newItems = new List<SQLTableItem>();
             foreach (SQLTableItem item in info.Columns)
             {
                 //Verify column exists in table.
                 DBColumn column = DBColumns.FirstOrDefault(n => n.Name.Equals(item.SQLName, StringComparison.CurrentCultureIgnoreCase));
-                if (column == null) throw new FormatException($"{info.TableName}: Missing column {item.SQLName}!");
+                if (column == null)
+                {
+                    if (!WriteOptions.AlterTableToAddNewColumns) throw new FormatException($"{info.TableName}: Missing column {item.SQLName}!");
+                    else
+                    {
+                        Trace.WriteLine($"New properties detected for {info.Name}: {item.Name}.");
+                        newItems.Add(item);
+                        continue;
+                    }
+                }
 
                 string errHeaderDB = $"Incorrect database format for {info.TableName}.{item.SQLName}: ";
                 string errHeaderClass = $"Incorrect class declaration for {info.Name}.{item.Name}: ";
@@ -672,6 +692,17 @@ namespace CodeArtEng.SQLite
 
                     if (item.DataType == SQLDataType.REAL && !column.Type.Equals("REAL"))
                         throw new FormatException(errHeaderDB + "Type mismatched, expecting REAL!");
+                }
+            }
+
+            if (WriteOptions.AlterTableToAddNewColumns && newItems.Count > 0 && !IsDatabaseReadOnly)
+            {
+                foreach (SQLTableItem i in newItems)
+                {
+                    string alterQuery = $"ALTER TABLE {info.TableName} ADD COLUMN {GetCreateParam(i,addDefaultValue: true)}";
+                    alterQuery = alterQuery.TrimEnd(',');
+                    ExecuteNonQuery(alterQuery);
+                    Trace.WriteLine($"Added new column {i.SQLName} to table {info.TableName}.");
                 }
             }
 
@@ -1436,9 +1467,23 @@ namespace CodeArtEng.SQLite
             return result;
         }
 
-        private string GetCreateParam(SQLTableItem item)
+        private string GetCreateParam(SQLTableItem item, bool addDefaultValue = false)
         {
-            return $"\"{item.SQLName}\" {item.DataType}{(item.IsUniqueColumn ? " UNIQUE" : "")},";
+            string defaultClause = string.Empty;
+            if (addDefaultValue)
+            {
+                switch(item.DataType)
+                {
+                    case SQLDataType.INTEGER:
+                    case SQLDataType.REAL:
+                        defaultClause = " DEFAULT 0";
+                        break;
+                    case SQLDataType.TEXT:
+                        defaultClause = " DEFAULT ''";
+                        break;
+                }
+            }
+            return $"\"{item.SQLName}\" {item.DataType}{(item.IsUniqueColumn ? " UNIQUE" : "")}{defaultClause},";
         }
 
         #endregion

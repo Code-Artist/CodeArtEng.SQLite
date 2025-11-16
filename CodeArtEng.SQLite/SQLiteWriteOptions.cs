@@ -30,5 +30,11 @@
         /// Write operation mode.
         /// </summary>
         public SQLWriteMode WriteMode { get; set; } = SQLWriteMode.All;
+        /// <summary>
+        /// Gets or sets a value indicating whether the system should automatically alter database tables 
+        /// to add new columns when new properties are detected in .NET class.
+        /// (Defalut = false)
+        /// </summary>
+        public bool AlterTableToAddNewColumns { get; set; } = false;
     }
 }

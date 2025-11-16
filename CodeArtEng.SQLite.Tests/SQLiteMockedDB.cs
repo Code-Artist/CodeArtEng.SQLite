@@ -218,6 +218,24 @@ namespace CodeArtEng.SQLite.Tests
 
     #endregion
 
+    #region [ Source - Simple Table ]
+
+    public class SimpleTable
+    {
+        public string Name { get; set; }
+        public int Value { get; set; }
+    }
+
+    [SQLName("SimpleTable")]
+    public class SimpleTableExtended : SimpleTable
+    {
+        public string ExOption { get; set; }
+        public double ExtraValue { get; set; }
+    }
+
+    #endregion
+
+
     internal class SQLiteMockedDB : SQLiteHelper
     {
         Random r = new Random((int)DateTime.Now.Ticks);
@@ -555,6 +573,45 @@ namespace CodeArtEng.SQLite.Tests
         {
             WriteToDatabase(items);
         }
+
+        #endregion
+
+        #region [ Simple Table ]
+
+        public SimpleTable[] ReadSimpleTable()
+        {
+            return ReadFromDatabase<SimpleTable>().ToArray();
+        }
+
+        public void WriteSimpleTable(int count)
+        {
+            List<SimpleTable> items = new List<SimpleTable>();
+            for (int x = 0; x < count; x++)
+            {
+                items.Add(new SimpleTable()
+                {
+                    Name = GenerateString(10),
+                    Value = r.Next(1000)
+                });
+            }
+            WriteToDatabase(items.ToArray());
+        }
+
+        public void WriteSimpleTableExtended(int count)
+        {
+            List<SimpleTableExtended> items = new List<SimpleTableExtended>();
+            for (int x = 0; x < count; x++)
+            {
+                items.Add(new SimpleTableExtended()
+                {
+                    Name = GenerateString(10),
+                    Value = r.Next(1000),
+                    ExOption = GenerateString(5),
+                    ExtraValue = r.NextDouble() * 1000
+                });
+            }
+            WriteToDatabase(items.ToArray());
+        }   
 
         #endregion
     }

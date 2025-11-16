@@ -381,7 +381,7 @@ namespace CodeArtEng.SQLite.Tests
             DB.WriteParentTableEmptyChildrens();
         }
 
-        [Test,Order(27)]
+        [Test, Order(27)]
         public void R_WriteParentAndChildTable2()
         {
             ParentTableItems2 = DB.WriteParentTable2(ParentLength, MaxChildLength);
@@ -653,7 +653,7 @@ namespace CodeArtEng.SQLite.Tests
         public void A_DropArrayTable_Read()
         {
             DB.DropTable("ArrayData");
-            using(SQLiteMockedDB db2 = new SQLiteMockedDB(TestDBPath))
+            using (SQLiteMockedDB db2 = new SQLiteMockedDB(TestDBPath))
             {
                 Assert.That(db2.ReadTableWithArrays().Length, Is.Not.EqualTo(0));
             }
@@ -741,7 +741,20 @@ namespace CodeArtEng.SQLite.Tests
         {
             SQLiteMockedDB backupDB = new SQLiteMockedDB("Backup.db");
             backupDB.ClearAllTables();
-            Assert.That( backupDB.ReadTableWithPrimaryKey().Length, Is.EqualTo(0)); 
+            Assert.That(backupDB.ReadTableWithPrimaryKey().Length, Is.EqualTo(0));
+        }
+
+        #endregion
+
+        #region [ 1100 - Alter Table Tests ]
+
+        [Test, Order(1100)]
+        public void TestAlterTable_AddColumn()
+        {
+            DB.WriteSimpleTable(10);
+            SQLiteMockedDB DB2 = new SQLiteMockedDB(TestDBPath);
+            DB2.WriteOptions.AlterTableToAddNewColumns = true;
+            DB2.WriteSimpleTableExtended(5);
         }
 
         #endregion
