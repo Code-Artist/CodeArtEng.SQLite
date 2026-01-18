@@ -11,8 +11,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
-//ToDo: Read and Write Async
-
 namespace CodeArtEng.SQLite
 {
     /// <summary>
