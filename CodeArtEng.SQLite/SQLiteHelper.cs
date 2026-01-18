@@ -734,12 +734,10 @@ namespace CodeArtEng.SQLite
 
             foreach (SQLTableItem i in info.ChildTables)
             {
-                string dbBackupPath = SetSecondaryDBPath(i);
-                try
+                GetSecondaryDBConnection(i, (d) =>
                 {
-                    ValidateTableinfo(i.ChildTableInfo);
-                }
-                finally { RestorePrimaryDBPath(dbBackupPath); }
+                    d.ValidateTableinfo(i.ChildTableInfo);
+                });
             }
 
             info.Validated = true;
@@ -955,21 +953,20 @@ namespace CodeArtEng.SQLite
                             throw new FormatException("Primary key not defined for class " + childTableInfo.Name);
                     }
 
+
                     //Read from child table by parent key ID.
                     MethodInfo ptrReadMethod;
                     ptrReadMethod = this.GetType()
                         .GetMethod("ReadFromDatabaseInt", BindingFlags.Instance | BindingFlags.NonPublic)
                         .MakeGenericMethod(childType);
 
-                    string dbBackup = SetSecondaryDBPath(r);
-                    try
+                    GetSecondaryDBConnection(r, (d) =>
                     {
                         if (!childTableInfo.Validated)
                         {
                             //Verify child table exists, skip reading if table not exists in database.
                             //Maintain backward compatibility by not failing read operation
-                            if (!ValidateTableinfo(childTableInfo)) continue;
-
+                            if (!d.ValidateTableinfo(childTableInfo)) return;
                         }
 
                         foreach (T i in results)
@@ -978,18 +975,17 @@ namespace CodeArtEng.SQLite
                             //Recursive call to ReadFromDatabse method.
                             if (r.IsList)
                             {
-                                object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.ParentKey.Name} == {pKey}" });
+                                object childItems = ptrReadMethod.Invoke(d, new object[] { childTableInfo, $"WHERE {childTableInfo.ParentKey.Name} == {pKey}" });
                                 r.Property.SetValueEx(i, childItems);
                             }
                             else
                             {
-                                object childItems = ptrReadMethod.Invoke(this, new object[] { childTableInfo, $"WHERE {childTableInfo.PrimaryKey.Name} == {pKey}" });
+                                object childItems = ptrReadMethod.Invoke(d, new object[] { childTableInfo, $"WHERE {childTableInfo.PrimaryKey.Name} == {pKey}" });
                                 IList v = childItems as IList;
                                 if (v.Count > 0) r.Property.SetValueEx(i, v[0]);
                             }
                         }
-                    }
-                    finally { RestorePrimaryDBPath(dbBackup); }
+                    });
                 }
             }
             return results;
@@ -1271,17 +1267,14 @@ namespace CodeArtEng.SQLite
                             }
                         }
 
-                        string dbBackup = SetSecondaryDBPath(t);
-                        try
+                        GetSecondaryDBConnection(t, (d) =>
                         {
                             //When updating existing items, delete existing child items before writing updated one.
-                            if (t.IsList) DeleteChildItemsByParentID(childTableInfo, pKeyID);
-                            else DeleteChildItemsByPrimaryKeyID(childTableInfo, pKeyID);
-
+                            if (t.IsList) d.DeleteChildItemsByParentID(childTableInfo, pKeyID);
+                            else d.DeleteChildItemsByPrimaryKeyID(childTableInfo, pKeyID);
                             //Recusive write to child table items.
-                            if (childList.Count > 0) WriteToDatabaseInt(childTableInfo, childList.ToArray());
-                        }
-                        finally { RestorePrimaryDBPath(dbBackup); }
+                            if (childList.Count > 0) d.WriteToDatabaseInt(childTableInfo, childList.ToArray());
+                        });
                     }
 
                 }//for each items in senders
@@ -1378,6 +1371,7 @@ namespace CodeArtEng.SQLite
         /// </summary>
         /// <param name="item"></param>
         /// <returns></returns>
+        [Obsolete("Use GetSecondaryDBConnection(SQLTableItem) instead to get separate database connection.")]
         private string SetSecondaryDBPath(SQLTableItem item)
         {
             string dbBackup = string.Empty;
@@ -1390,6 +1384,39 @@ namespace CodeArtEng.SQLite
                 SetSQLPath(newDbPath);
             }
             return dbBackup;
+        }
+
+
+        /// <summary>
+        /// Executes an action using either a secondary database connection or the current connection.
+        /// </summary>
+        /// <param name="item">The SQL table item containing optional secondary database path information.</param>
+        /// <param name="performAction">The action to execute with the appropriate SQLiteHelper instance.</param>
+        /// <remarks>
+        /// If the item specifies a secondary database file path, this method:
+        /// - Creates a new connection to the secondary database
+        /// - Resolves relative paths relative to the current database directory
+        /// - Executes the provided action with the secondary connection
+        /// - Ensures proper disposal of the secondary connection after use
+        /// 
+        /// If no secondary database is specified, the action is executed using the current connection.
+        /// </remarks>
+        private void GetSecondaryDBConnection(SQLTableItem item, Action<SQLiteHelper> performAction)
+        {
+            if (!string.IsNullOrEmpty(item.SecondaryDatabaseFilePath))
+            {
+                string newDbPath = item.SecondaryDatabaseFilePath;
+                if (string.IsNullOrEmpty(Path.GetDirectoryName(item.SecondaryDatabaseFilePath)))
+                    newDbPath = Path.Combine(Path.GetDirectoryName(DatabaseFilePath), item.SecondaryDatabaseFilePath);
+                SQLiteHelper ptrDB = new SQLiteDBLite(newDbPath);
+                try { performAction(ptrDB); }
+                finally { ptrDB.Dispose(); }
+            }
+            else
+            {
+                //Use current connection if no secondary database defined
+                performAction(this);
+            }
         }
 
         /// <summary>
