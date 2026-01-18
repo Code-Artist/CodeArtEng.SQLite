@@ -93,6 +93,7 @@ namespace CodeArtEng.SQLite
             DisconnectDatabase();
             SetSQLPath(DatabaseFilePath, readOnly);
             IsLocalSyncActive = false;
+            Trace.WriteLine("SQLiteDatabaseHandler: Switched to remote database: " + DatabaseFilePath);
         }
 
         /// <summary>
@@ -107,6 +108,7 @@ namespace CodeArtEng.SQLite
             SetSQLPath(LocalFilePath, readOnly: true);
             IsLocalSyncActive = true;
             if (File.Exists(LocalFilePath)) LastUpdate = File.GetLastWriteTime(LocalFilePath);
+            Trace.WriteLine("SQLiteDatabaseHandler: Switched to local database: " + LocalFilePath);
         }
 
         /// <summary>

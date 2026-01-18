@@ -364,9 +364,14 @@ namespace CodeArtEng.SQLite
                 int reader = Command.ExecuteNonQuery();
                 return reader;
             }
-            finally { Disconnect(); }
+            finally
+            {
+                Disconnect();
+            }
         }
 
+
+        private SQLiteTransaction TransactionHandler { get; set; } = null;
         /// <summary>
         /// Execute SQL Transactions, write operation.
         /// </summary>
@@ -377,27 +382,35 @@ namespace CodeArtEng.SQLite
             SQLiteTransaction transaction = null;
             try
             {
-                //Begin Transaction
-                transaction = DBConnection.BeginTransaction();
-                Command.Transaction = transaction;
+                //Handle nested transaction, use existing transaction if available.
+                if (TransactionHandler == null)
+                {
+                    //Begin New Transaction
+                    TransactionHandler = transaction = DBConnection.BeginTransaction();
+                    Command.Transaction = transaction;
+                }
 
                 //User implemented callback
                 performTransactions();
-                transaction.Commit();
+                transaction?.Commit();
             }
             catch
             {
-                transaction.Rollback();
+                TransactionHandler.Rollback();
                 throw;
             }
             finally
             {
-                //Clean up and disconnect
-                Command.Transaction = null;
-                Command.Parameters.Clear();
-                transaction?.Dispose();
-                KeepDatabaseOpen = false;
-                Disconnect();
+                //Clean up and disconnect transaction at top most level.
+                if (transaction != null && transaction == TransactionHandler)
+                {
+                    Command.Transaction = null;
+                    Command.Parameters.Clear();
+                    TransactionHandler.Dispose();
+                    TransactionHandler = null;
+                    KeepDatabaseOpen = false;
+                    Disconnect();
+                }
             }
         }
 
@@ -699,7 +712,7 @@ namespace CodeArtEng.SQLite
             {
                 foreach (SQLTableItem i in newItems)
                 {
-                    string alterQuery = $"ALTER TABLE {info.TableName} ADD COLUMN {GetCreateParam(i,addDefaultValue: true)}";
+                    string alterQuery = $"ALTER TABLE {info.TableName} ADD COLUMN {GetCreateParam(i, addDefaultValue: true)}";
                     alterQuery = alterQuery.TrimEnd(',');
                     ExecuteNonQuery(alterQuery);
                     Trace.WriteLine($"Added new column {i.SQLName} to table {info.TableName}.");
@@ -1087,134 +1100,133 @@ namespace CodeArtEng.SQLite
 
             Type senderType = typeof(T);
             string tableName = senderTable.TableName;
-
-            // Execute query for each element in the array.
-            // Each query update a row in table.
-            foreach (T item in senders)
+            ExecuteTransaction(() =>
             {
-                SQLTableItem[] arguments = senderTable.Columns;
-                SQLTableItem primaryKey = senderTable.PrimaryKey;
-                bool autoAssignPrimaryKey = false;
-                string query = null;
-                long pKeyID = -1;
-                if (primaryKey != null)
+                // Execute query for each element in the array.
+                // Each query update a row in table.
+                foreach (T item in senders)
                 {
-                    Type pKeyType = primaryKey.Property.PropertyType;
-                    bool pKeyIsInteger = typeof(IConvertible).IsAssignableFrom(pKeyType) &&
-                                            pKeyType.IsValueType && pKeyType.IsPrimitive;
-                    var pKeyValue = primaryKey.Property.GetValue(item);
-
-                    if (pKeyIsInteger)
+                    SQLTableItem[] arguments = senderTable.Columns;
+                    SQLTableItem primaryKey = senderTable.PrimaryKey;
+                    bool autoAssignPrimaryKey = false;
+                    string query = null;
+                    long pKeyID = -1;
+                    if (primaryKey != null)
                     {
-                        // Include primary keys in query if value is not 0
-                        try
+                        Type pKeyType = primaryKey.Property.PropertyType;
+                        bool pKeyIsInteger = typeof(IConvertible).IsAssignableFrom(pKeyType) &&
+                                                pKeyType.IsValueType && pKeyType.IsPrimitive;
+                        var pKeyValue = primaryKey.Property.GetValue(item);
+
+                        if (pKeyIsInteger)
                         {
-                            pKeyID = Convert.ToInt64(pKeyValue);
+                            // Include primary keys in query if value is not 0
+                            try
+                            {
+                                pKeyID = Convert.ToInt64(pKeyValue);
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new ArgumentException($"Invalid primary key value for {senderTable.Name}: {pKeyValue}", ex);
+                            }
+                            if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
+                            else autoAssignPrimaryKey = true;
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            throw new ArgumentException($"Invalid primary key value for {senderTable.Name}: {pKeyValue}", ex);
+                            // User is responsible to ensure primary key value is defined and it's not null
+                            string pKeyStr = pKeyValue as string;
+                            if (string.IsNullOrEmpty(pKeyStr)) throw new ArgumentNullException($"{senderTable.Name}: Primary key value not defined!");
+                            arguments = arguments.Append(primaryKey).ToArray();
+                            autoAssignPrimaryKey = false;
                         }
-                        if (pKeyID != 0) arguments = arguments.Append(primaryKey).ToArray();
-                        else autoAssignPrimaryKey = true;
                     }
-                    else
-                    {
-                        // User is responsible to ensure primary key value is defined and it's not null
-                        string pKeyStr = pKeyValue as string;
-                        if (string.IsNullOrEmpty(pKeyStr)) throw new ArgumentNullException($"{senderTable.Name}: Primary key value not defined!");
-                        arguments = arguments.Append(primaryKey).ToArray();
-                        autoAssignPrimaryKey = false;
-                    }
-                }
 
-                //Query without primary key, safe to use INSERT or REPLACE Statement
-                //Create SQL query for insertion
-                query = $"INSERT OR REPLACE INTO {tableName} " +
-                    $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
-                    $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
-
-                if (autoAssignPrimaryKey) query = query.Replace("INSERT OR REPLACE", "INSERT OR IGNORE");
-
-                //Create parameter list
-                List<SQLiteParameter> parameters = arguments.Except(senderTable.IndexKeys).
-                        Select(p => new SQLiteParameter($"@{p.SQLName}", p.GetDBValue(item))).ToList();
-
-                //Replace value for property marked as SQLIndex with id.
-                foreach (SQLTableItem i in senderTable.IndexKeys)
-                {
-                    IndexTableHandler indexTable = GetIndexTable(i.TableName);
-                    string value = i.Property.GetValue(item)?.ToString();
-                    if (string.IsNullOrEmpty(value))
-                    {
-                        //Value is null, set parameter value as DBNull.
-                        parameters.Add(new SQLiteParameter($"@{i.SQLName}", DBNull.Value));
-                    }
-                    else
-                    {
-                        int id = indexTable.GetIdByName(i.Property.GetValue(item).ToString());
-                        parameters.Add(new SQLiteParameter($"@{i.SQLName}", id));
-                    }
-                }
-
-                // Execute SQL query for current table
-                Command.Parameters.Clear();
-                Command.Parameters.AddRange(parameters.ToArray());
-                // Row with same unique contraint will be ignored, resulting row change = 0
-                // Handling of such entry is done below. 
-                int rowChanged = ExecuteNonQuery(query);
-
-                //Assign Primary Key, only for integer or long type.
-                if (autoAssignPrimaryKey && rowChanged == 1)
-                {
-                    //Primary key value is 0, read assigned primary key value from database.
-                    int lastRowID = GetLastRowID(tableName);
-                    pKeyID = Convert.ToInt32(ExecuteScalar($"SELECT {primaryKey.Name} FROM {tableName} WHERE ROWID = {lastRowID}"));
-                    //Update primary key value to object.
-                    primaryKey.Property.SetValueEx(item, pKeyID);
-                }
-                else if (autoAssignPrimaryKey)
-                {
-                    //Update row where columns item match unique contraint of existing entry.
-                    autoAssignPrimaryKey = false;
-
-                    //Retrieve columns with unique constraints
-                    SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn || n.IsUniqueMulltiColumn).ToArray();
-                    if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
-                    string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
-                        string.Join(" AND ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
-
-                    //Get primary key ID for item which match defined unique constraint.
-                    pKeyID = (long)ExecuteScalar(queryUniqueItem);
-
-                    //Add primary key to parameter list
-                    primaryKey.Property.SetValueEx(item, pKeyID);
-                    arguments = arguments.Append(primaryKey).ToArray();
-                    parameters.Add(new SQLiteParameter($"@{primaryKey.SQLName}", pKeyID));
-
-                    // Create SQL query for update while maintain existing primary key ID.
+                    //Query without primary key, safe to use INSERT or REPLACE Statement
+                    //Create SQL query for insertion
                     query = $"INSERT OR REPLACE INTO {tableName} " +
                         $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
                         $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
 
+                    if (autoAssignPrimaryKey) query = query.Replace("INSERT OR REPLACE", "INSERT OR IGNORE");
+
+                    //Create parameter list
+                    List<SQLiteParameter> parameters = arguments.Except(senderTable.IndexKeys).
+                            Select(p => new SQLiteParameter($"@{p.SQLName}", p.GetDBValue(item))).ToList();
+
+                    //Replace value for property marked as SQLIndex with id.
+                    foreach (SQLTableItem i in senderTable.IndexKeys)
+                    {
+                        IndexTableHandler indexTable = GetIndexTable(i.TableName);
+                        string value = i.Property.GetValue(item)?.ToString();
+                        if (string.IsNullOrEmpty(value))
+                        {
+                            //Value is null, set parameter value as DBNull.
+                            parameters.Add(new SQLiteParameter($"@{i.SQLName}", DBNull.Value));
+                        }
+                        else
+                        {
+                            int id = indexTable.GetIdByName(i.Property.GetValue(item).ToString());
+                            parameters.Add(new SQLiteParameter($"@{i.SQLName}", id));
+                        }
+                    }
+
+                    // Execute SQL query for current table
                     Command.Parameters.Clear();
                     Command.Parameters.AddRange(parameters.ToArray());
-                    ExecuteNonQuery(query);
-                }
+                    // Row with same unique contraint will be ignored, resulting row change = 0
+                    // Handling of such entry is done below. 
+                    int rowChanged = ExecuteNonQuery(query);
 
-                //Write array values to Array Table
-                foreach (SQLTableItem t in senderTable.ArrayTables)
-                {
-                    Type elementType = t.Property.PropertyType.GetElementType();
-                    bool isString = elementType == typeof(string);
-                    string arrayTableName = t.TableName;
-                    //Delete old records
-                    query = $"DELETE FROM {arrayTableName} WHERE ID = {pKeyID}";
-                    ExecuteNonQuery(query);
-                    IList childs = t.Property.GetValue(item) as IList;
-                    if (childs == null) continue;
-                    ExecuteTransaction(() =>
+                    //Assign Primary Key, only for integer or long type.
+                    if (autoAssignPrimaryKey && rowChanged == 1)
                     {
+                        //Primary key value is 0, read assigned primary key value from database.
+                        int lastRowID = GetLastRowID(tableName);
+                        pKeyID = Convert.ToInt32(ExecuteScalar($"SELECT {primaryKey.Name} FROM {tableName} WHERE ROWID = {lastRowID}"));
+                        //Update primary key value to object.
+                        primaryKey.Property.SetValueEx(item, pKeyID);
+                    }
+                    else if (autoAssignPrimaryKey)
+                    {
+                        //Update row where columns item match unique contraint of existing entry.
+                        autoAssignPrimaryKey = false;
+
+                        //Retrieve columns with unique constraints
+                        SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn || n.IsUniqueMulltiColumn).ToArray();
+                        if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
+                        string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
+                            string.Join(" AND ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
+
+                        //Get primary key ID for item which match defined unique constraint.
+                        pKeyID = (long)ExecuteScalar(queryUniqueItem);
+
+                        //Add primary key to parameter list
+                        primaryKey.Property.SetValueEx(item, pKeyID);
+                        arguments = arguments.Append(primaryKey).ToArray();
+                        parameters.Add(new SQLiteParameter($"@{primaryKey.SQLName}", pKeyID));
+
+                        // Create SQL query for update while maintain existing primary key ID.
+                        query = $"INSERT OR REPLACE INTO {tableName} " +
+                            $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
+                            $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
+
+                        Command.Parameters.Clear();
+                        Command.Parameters.AddRange(parameters.ToArray());
+                        ExecuteNonQuery(query);
+                    }
+
+                    //Write array values to Array Table
+                    foreach (SQLTableItem t in senderTable.ArrayTables)
+                    {
+                        Type elementType = t.Property.PropertyType.GetElementType();
+                        bool isString = elementType == typeof(string);
+                        string arrayTableName = t.TableName;
+                        //Delete old records
+                        query = $"DELETE FROM {arrayTableName} WHERE ID = {pKeyID}";
+                        ExecuteNonQuery(query);
+                        IList childs = t.Property.GetValue(item) as IList;
+                        if (childs == null) continue;
                         foreach (var c in childs)
                         {
                             query = $"INSERT INTO {arrayTableName} (ID, VALUE) VALUES ({pKeyID}, ";
@@ -1222,58 +1234,58 @@ namespace CodeArtEng.SQLite
                             query += ")";
                             ExecuteNonQuery(query);
                         }
-                    });
-                }
+                    }
 
-                //Assign Value and parent key for nested table.
-                foreach (SQLTableItem t in senderTable.ChildTables)
-                {
-                    //Get child table info and identify parent key
-                    SQLTableInfo childTableInfo = t.ChildTableInfo;
-
-                    //Assign parent id to parent key
-                    List<object> childList = new List<object>();
-                    if (t.IsList)
+                    //Assign Value and parent key for nested table.
+                    foreach (SQLTableItem t in senderTable.ChildTables)
                     {
-                        if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
-                            throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
+                        //Get child table info and identify parent key
+                        SQLTableInfo childTableInfo = t.ChildTableInfo;
 
-                        //Child table is a list object get all values as IList
-                        IList childs = t.Property.GetValue(item) as IList;
-                        if (childs != null)
+                        //Assign parent id to parent key
+                        List<object> childList = new List<object>();
+                        if (t.IsList)
                         {
-                            foreach (object c in childs)
+                            if (childTableInfo.ParentKey?.ParentType != senderTable.TableType)
+                                throw new FormatException("Parent key not defined for class " + childTableInfo.Name);
+
+                            //Child table is a list object get all values as IList
+                            IList childs = t.Property.GetValue(item) as IList;
+                            if (childs != null)
                             {
-                                childTableInfo.ParentKey.Property.SetValueEx(c, pKeyID);
-                                childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
+                                foreach (object c in childs)
+                                {
+                                    childTableInfo.ParentKey.Property.SetValueEx(c, pKeyID);
+                                    childList.Add(c); //Convert to list which later pass as an object to method WriteToDatabase()
+                                }
                             }
                         }
-                    }
-                    else
-                    {
-                        //One to one mapping
-                        object child = t.Property.GetValue(item);
-                        if (child != null)
+                        else
                         {
-                            childTableInfo.PrimaryKey.Property.SetValueEx(child, pKeyID);
-                            childList.Add(child);
+                            //One to one mapping
+                            object child = t.Property.GetValue(item);
+                            if (child != null)
+                            {
+                                childTableInfo.PrimaryKey.Property.SetValueEx(child, pKeyID);
+                                childList.Add(child);
+                            }
                         }
+
+                        string dbBackup = SetSecondaryDBPath(t);
+                        try
+                        {
+                            //When updating existing items, delete existing child items before writing updated one.
+                            if (t.IsList) DeleteChildItemsByParentID(childTableInfo, pKeyID);
+                            else DeleteChildItemsByPrimaryKeyID(childTableInfo, pKeyID);
+
+                            //Recusive write to child table items.
+                            if (childList.Count > 0) WriteToDatabaseInt(childTableInfo, childList.ToArray());
+                        }
+                        finally { RestorePrimaryDBPath(dbBackup); }
                     }
 
-                    string dbBackup = SetSecondaryDBPath(t);
-                    try
-                    {
-                        //When updating existing items, delete existing child items before writing updated one.
-                        if (t.IsList) DeleteChildItemsByParentID(childTableInfo, pKeyID);
-                        else DeleteChildItemsByPrimaryKeyID(childTableInfo, pKeyID);
-
-                        //Recusive write to child table items.
-                        if (childList.Count > 0) WriteToDatabaseInt(childTableInfo, childList.ToArray());
-                    }
-                    finally { RestorePrimaryDBPath(dbBackup); }
-                }
-
-            }//for each items in senders
+                }//for each items in senders
+            });
         }
 
         private void DeleteChildItemsByParentID(SQLTableInfo childTableInfo, object parentID)
@@ -1472,7 +1484,7 @@ namespace CodeArtEng.SQLite
             string defaultClause = string.Empty;
             if (addDefaultValue)
             {
-                switch(item.DataType)
+                switch (item.DataType)
                 {
                     case SQLDataType.INTEGER:
                     case SQLDataType.REAL:

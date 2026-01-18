@@ -546,7 +546,7 @@ namespace CodeArtEng.SQLite.Tests
                 i.EmptyData = new string[2] { "A", "B" };
                 items.Add(i);
             }
-            WriteToDatabase(items.ToArray());
+            ExecuteTransaction(() => { WriteToDatabase(items.ToArray()); });
             return items.ToArray();
         }
 
