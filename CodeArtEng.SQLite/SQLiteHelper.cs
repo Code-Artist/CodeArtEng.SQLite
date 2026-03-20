@@ -1312,29 +1312,32 @@ namespace CodeArtEng.SQLite
             Type senderType = senders.First().GetType();
             SQLTableInfo senderTable = GetTableInfo(senderType, tableName);
 
-            if (senderTable.PrimaryKey == null) throw new ArgumentException("Unable to delete items, primary key not declared!");
-            foreach (T item in senders)
+            ExecuteTransaction(() =>
             {
-                //Get primary key for each item.
-                object pKey = senderTable.PrimaryKey.Property.GetValue(item);
-
-                //Delete all child items by parent's primary key.
-                foreach (SQLTableItem t in senderTable.ChildTables)
+                if (senderTable.PrimaryKey == null) throw new ArgumentException("Unable to delete items, primary key not declared!");
+                foreach (T item in senders)
                 {
-                    SQLTableInfo tbInfo = t.ChildTableInfo;
-                    if (t.IsList) DeleteChildItemsByParentID(tbInfo, pKey);
-                    else DeleteChildItemsByPrimaryKeyID(tbInfo, pKey);
-                }
+                    //Get primary key for each item.
+                    object pKey = senderTable.PrimaryKey.Property.GetValue(item);
 
-                foreach (SQLTableItem t in senderTable.ArrayTables)
-                {
-                    string tbName = t.TableName;
-                    ExecuteNonQuery($"DELETE FROM {tbName} WHERE ID = {pKey}");
-                }
+                    //Delete all child items by parent's primary key.
+                    foreach (SQLTableItem t in senderTable.ChildTables)
+                    {
+                        SQLTableInfo tbInfo = t.ChildTableInfo;
+                        if (t.IsList) DeleteChildItemsByParentID(tbInfo, pKey);
+                        else DeleteChildItemsByPrimaryKeyID(tbInfo, pKey);
+                    }
 
-                //Delete parent instance
-                ExecuteNonQuery($"DELETE FROM {senderTable.TableName} WHERE {senderTable.PrimaryKey.SQLName} == {pKey}");
-            }
+                    foreach (SQLTableItem t in senderTable.ArrayTables)
+                    {
+                        string tbName = t.TableName;
+                        ExecuteNonQuery($"DELETE FROM {tbName} WHERE ID = {pKey}");
+                    }
+
+                    //Delete parent instance
+                    ExecuteNonQuery($"DELETE FROM {senderTable.TableName} WHERE {senderTable.PrimaryKey.SQLName} == {pKey}");
+                }
+            });
         }
 
         /// <summary>
