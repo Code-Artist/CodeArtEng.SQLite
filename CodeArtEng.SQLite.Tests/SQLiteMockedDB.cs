@@ -31,6 +31,7 @@ namespace CodeArtEng.SQLite.Tests
         public bool Flag { get; set; }
         public Options OptionAsString { get; set; }
         [SQLDataType(SQLDataType.INTEGER)]
+        [SQLName("Option Number")]
         public Options OptionAsNumber { get; set; }
         [SQLIndexTable("TextAsID")]
         [SQLName("TextID")]

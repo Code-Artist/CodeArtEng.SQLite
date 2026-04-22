@@ -547,7 +547,7 @@ namespace CodeArtEng.SQLite.Tests
         [Test, Order(51)]
         public void CreateTableWithPrimaryKey()
         {
-            string createStatement = "CREATE TABLE \"C_TableWithPrimaryKey\" (\"ID\" INTEGER,\"Name\" TEXT UNIQUE,\"Time\" TEXT,\"TimeAsTicks\" INTEGER,\"Integer\" INTEGER,\"Double\" REAL,\"Flag\" INTEGER,\"OptionAsString\" TEXT,\"OptionAsNumber\" INTEGER,\"TextID\" INTEGER,PRIMARY KEY(\"ID\"))";
+            string createStatement = "CREATE TABLE \"C_TableWithPrimaryKey\" (\"ID\" INTEGER,\"Name\" TEXT UNIQUE,\"Time\" TEXT,\"TimeAsTicks\" INTEGER,\"Integer\" INTEGER,\"Double\" REAL,\"Flag\" INTEGER,\"OptionAsString\" TEXT,\"Option Number\" INTEGER,\"TextID\" INTEGER,PRIMARY KEY(\"ID\"))";
             string genCreateStatement = DB.CreateTable<TableWithPrimaryKey>("C_TableWithPrimaryKey");
             Assert.That(genCreateStatement, Is.EqualTo(createStatement));
             Assert.That(DB.GetTables().Contains("C_TableWithPrimaryKey"));

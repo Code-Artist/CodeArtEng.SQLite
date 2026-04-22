@@ -710,7 +710,7 @@ namespace CodeArtEng.SQLite
             {
                 foreach (SQLTableItem i in newItems)
                 {
-                    string alterQuery = $"ALTER TABLE {info.TableName} ADD COLUMN {GetCreateParam(i, addDefaultValue: true)}";
+                    string alterQuery = $"ALTER TABLE [{info.TableName}] ADD COLUMN {GetCreateParam(i, addDefaultValue: true)}";
                     alterQuery = alterQuery.TrimEnd(',');
                     ExecuteNonQuery(alterQuery);
                     Trace.WriteLine($"Added new column {i.SQLName} to table {info.TableName}.");
@@ -1138,15 +1138,15 @@ namespace CodeArtEng.SQLite
 
                     //Query without primary key, safe to use INSERT or REPLACE Statement
                     //Create SQL query for insertion
-                    query = $"INSERT OR REPLACE INTO {tableName} " +
-                        $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
-                        $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
+                    query = $"INSERT OR REPLACE INTO [{tableName}] " +
+                        $"({string.Join(", ", arguments.Select(p => $"[{p.SQLName}]"))}) VALUES " +
+                        $"({string.Join(", ", arguments.Select(p => "@" + p.SQLNameNoSpaces))})";
 
                     if (autoAssignPrimaryKey) query = query.Replace("INSERT OR REPLACE", "INSERT OR IGNORE");
 
                     //Create parameter list
                     List<SQLiteParameter> parameters = arguments.Except(senderTable.IndexKeys).
-                            Select(p => new SQLiteParameter($"@{p.SQLName}", p.GetDBValue(item))).ToList();
+                            Select(p => new SQLiteParameter($"@{p.SQLNameNoSpaces}", p.GetDBValue(item))).ToList();
 
                     //Replace value for property marked as SQLIndex with id.
                     foreach (SQLTableItem i in senderTable.IndexKeys)
@@ -1156,12 +1156,12 @@ namespace CodeArtEng.SQLite
                         if (string.IsNullOrEmpty(value))
                         {
                             //Value is null, set parameter value as DBNull.
-                            parameters.Add(new SQLiteParameter($"@{i.SQLName}", DBNull.Value));
+                            parameters.Add(new SQLiteParameter($"@{i.SQLNameNoSpaces}", DBNull.Value));
                         }
                         else
                         {
                             int id = indexTable.GetIdByName(i.Property.GetValue(item).ToString());
-                            parameters.Add(new SQLiteParameter($"@{i.SQLName}", id));
+                            parameters.Add(new SQLiteParameter($"@{i.SQLNameNoSpaces}", id));
                         }
                     }
 
@@ -1177,7 +1177,7 @@ namespace CodeArtEng.SQLite
                     {
                         //Primary key value is 0, read assigned primary key value from database.
                         int lastRowID = GetLastRowID(tableName);
-                        pKeyID = Convert.ToInt32(ExecuteScalar($"SELECT {primaryKey.Name} FROM {tableName} WHERE ROWID = {lastRowID}"));
+                        pKeyID = Convert.ToInt32(ExecuteScalar($"SELECT [{primaryKey.Name}] FROM [{tableName}] WHERE ROWID = {lastRowID}"));
                         //Update primary key value to object.
                         primaryKey.Property.SetValueEx(item, pKeyID);
                     }
@@ -1189,7 +1189,7 @@ namespace CodeArtEng.SQLite
                         //Retrieve columns with unique constraints
                         SQLTableItem[] uniqueColumns = arguments.Where(n => n.IsUniqueColumn || n.IsUniqueMulltiColumn).ToArray();
                         if (uniqueColumns == null || uniqueColumns.Length == 0) throw new InvalidOperationException("Expecting unique columns, but not found any!");
-                        string queryUniqueItem = $"SELECT {primaryKey.SQLName} FROM {tableName} WHERE " +
+                        string queryUniqueItem = $"SELECT [{primaryKey.SQLName}] FROM [{tableName}] WHERE " +
                             string.Join(" AND ", uniqueColumns.Select(a => a.SQLName + " = @" + a.SQLName));
 
                         //Get primary key ID for item which match defined unique constraint.
@@ -1198,12 +1198,12 @@ namespace CodeArtEng.SQLite
                         //Add primary key to parameter list
                         primaryKey.Property.SetValueEx(item, pKeyID);
                         arguments = arguments.Append(primaryKey).ToArray();
-                        parameters.Add(new SQLiteParameter($"@{primaryKey.SQLName}", pKeyID));
+                        parameters.Add(new SQLiteParameter($"@{primaryKey.SQLNameNoSpaces}", pKeyID));
 
                         // Create SQL query for update while maintain existing primary key ID.
-                        query = $"INSERT OR REPLACE INTO {tableName} " +
-                            $"({string.Join(", ", arguments.Select(p => p.SQLName))}) VALUES " +
-                            $"({string.Join(", ", arguments.Select(p => "@" + p.SQLName))})";
+                        query = $"INSERT OR REPLACE INTO [{tableName}] " +
+                            $"({string.Join(", ", arguments.Select(p => $"[{p.SQLName}]"))}) VALUES " +
+                            $"({string.Join(", ", arguments.Select(p => "@" + p.SQLNameNoSpaces))})";
 
                         Command.Parameters.Clear();
                         Command.Parameters.AddRange(parameters.ToArray());
@@ -1217,13 +1217,13 @@ namespace CodeArtEng.SQLite
                         bool isString = elementType == typeof(string);
                         string arrayTableName = t.TableName;
                         //Delete old records
-                        query = $"DELETE FROM {arrayTableName} WHERE ID = {pKeyID}";
+                        query = $"DELETE FROM [{arrayTableName}] WHERE ID = {pKeyID}";
                         ExecuteNonQuery(query);
                         IList childs = t.Property.GetValue(item) as IList;
                         if (childs == null) continue;
                         foreach (var c in childs)
                         {
-                            query = $"INSERT INTO {arrayTableName} (ID, VALUE) VALUES ({pKeyID}, ";
+                            query = $"INSERT INTO [{arrayTableName}] (ID, VALUE) VALUES ({pKeyID}, ";
                             query += isString ? $"'{c}'" : c;
                             query += ")";
                             ExecuteNonQuery(query);
@@ -1281,7 +1281,7 @@ namespace CodeArtEng.SQLite
 
         private void DeleteChildItemsByParentID(SQLTableInfo childTableInfo, object parentID)
         {
-            string query = $"DELETE FROM {childTableInfo.TableName} WHERE {childTableInfo.ParentKey.Name} == {parentID}";
+            string query = $"DELETE FROM [{childTableInfo.TableName}] WHERE [{childTableInfo.ParentKey.Name}] == {parentID}";
             ExecuteNonQuery(query);
         }
 
@@ -1331,11 +1331,11 @@ namespace CodeArtEng.SQLite
                     foreach (SQLTableItem t in senderTable.ArrayTables)
                     {
                         string tbName = t.TableName;
-                        ExecuteNonQuery($"DELETE FROM {tbName} WHERE ID = {pKey}");
+                        ExecuteNonQuery($"DELETE FROM [{tbName}] WHERE ID = {pKey}");
                     }
 
                     //Delete parent instance
-                    ExecuteNonQuery($"DELETE FROM {senderTable.TableName} WHERE {senderTable.PrimaryKey.SQLName} == {pKey}");
+                    ExecuteNonQuery($"DELETE FROM [{senderTable.TableName}] WHERE [{senderTable.PrimaryKey.SQLName}] == {pKey}");
                 }
             });
         }
@@ -1359,7 +1359,7 @@ namespace CodeArtEng.SQLite
         /// <param name="tableName"></param>
         protected void DeleteFromDatabase(string whereStatement, string tableName)
         {
-            ExecuteNonQuery($"DELETE FROM {tableName} {whereStatement}");
+            ExecuteNonQuery($"DELETE FROM [{tableName}] {whereStatement}");
         }
 
         #endregion

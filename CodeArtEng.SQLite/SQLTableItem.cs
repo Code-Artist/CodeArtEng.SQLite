@@ -44,6 +44,7 @@ namespace CodeArtEng.SQLite
         /// <see cref="SQLNameAttribute"/> is defined.
         /// </summary>
         public string SQLName { get; private set; }
+        public string SQLNameNoSpaces => SQLName.Replace(" ", "");
         /// <summary>
         /// Return true if <see cref="ParentKeyAttribute"/> is defined.
         /// </summary>
