@@ -375,8 +375,10 @@ namespace CodeArtEng.SQLite
         /// </summary>
         protected void ExecuteTransaction(Action performTransactions)
         {
-            Connect();
+            bool keepDBFlagOpen = KeepDatabaseOpen;
             KeepDatabaseOpen = true;
+
+            Connect();
             SQLiteTransaction transaction = null;
             try
             {
@@ -406,7 +408,7 @@ namespace CodeArtEng.SQLite
                     Command.Parameters.Clear();
                     TransactionHandler.Dispose();
                     TransactionHandler = null;
-                    KeepDatabaseOpen = false;
+                    KeepDatabaseOpen = keepDBFlagOpen;
                     Disconnect();
                 }
             }
